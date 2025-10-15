@@ -1,0 +1,7 @@
+- Create venv: `python -m venv .venv && source .venv/bin/activate` (Windows: `.venv\Scripts\activate`).
+- Install deps: `pip install -r requirements.txt`.
+- Run dev server: `flask --app app:create_app run` or `python app.py`.
+- Toggle debug: `export FLASK_DEBUG=1` (PowerShell: `$env:FLASK_DEBUG=1`).
+- Run migrations: `flask db init` (once) → `flask db migrate -m "msg"` → `flask db upgrade`.
+- Seed roles/admin: visit `http://localhost:5000/init` (optionally `?token=...`).
+- Run tests: `pytest -q`.

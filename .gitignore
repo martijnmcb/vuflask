@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Env & runtime
+.env
+instance/
+
+# OS
+.DS_Store
+
+# === Python cache ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+
+# === Virtual environments ===
+.venv/
+venv/
+env/
+
+# === Build / distribution ===
+build/
+dist/
+*.egg-info/
+
+# === Logs & temp files ===
+*.log
+*.tmp
+*.bak
+
+# === Streamlit / Flask ===
+.streamlit/
+instance/           # Flask instance folder (config, sqlite db’s etc.)
+*.db                # SQLite database files
+*.sqlite3
+
+# === Jupyter ===
+.ipynb_checkpoints/
+
+# === IDE / Editor ===
+.vscode/
+.idea/
+*.swp
+
+# === OS-specific ===
+.DS_Store
+Thumbs.db
+
+# === Secrets (zorg dat je ze niet commit) ===
+*.env
+config.json
+secrets.json

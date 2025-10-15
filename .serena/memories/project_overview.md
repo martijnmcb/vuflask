@@ -1,0 +1,5 @@
+- Purpose: Flask-based admin/auth skeleton for managing users, roles, and SQL Server connection profiles.
+- Key modules: `app.py` app factory, blueprints under `blueprints/` (`auth`, `main`, `admin`), SQLAlchemy models in `models.py`, shared extensions in `extensions.py`.
+- Entry points: `app.py` for development server, `wsgi.py` for deployment.
+- Persistence: SQLAlchemy with Flask-Migrate; default SQLite in development, supports MSSQL via `pyodbc`.
+- Templates/assets live in `templates/` and `static/`; tests in `tests/` using pytest fixtures.

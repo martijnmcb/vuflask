@@ -1,0 +1,5 @@
+- Ensure new dependencies are added to `requirements.txt` and installed locally.
+- Run `pytest -q` when relevant routes/models/auth logic changes.
+- Apply necessary migrations (`flask db migrate`/`upgrade`) if models change and document them.
+- For template/UI updates, review rendered pages and capture screenshots for PRs.
+- Verify `/init` guard remains secure (disabled or token-protected outside dev).

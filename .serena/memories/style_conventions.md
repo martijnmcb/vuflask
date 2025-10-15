@@ -1,0 +1,4 @@
+- Python: PEP 8, 4-space indents, ~100 char lines; function/variable names in snake_case, classes in PascalCase.
+- Blueprints: routes kept in `routes.py`, blueprint names align with folder and use clear URL prefixes (e.g. `/auth`, `/beheer`).
+- Templates: co-locate partials, use consistent prefixes (e.g. `admin_*.html`).
+- Comments kept minimal; prefer self-explanatory code with brief clarifying comments when logic isn't obvious.
