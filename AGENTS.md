@@ -1,41 +1,40 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `app.py`: App factory, dev server, and a guarded `/init` bootstrap route.
-- `blueprints/`: Feature modules — `auth`, `main`, `admin` (routes in `routes.py`).
-- `models.py`: SQLAlchemy models (`User`, `Role`, connection profiles).
-- `extensions.py`: App-wide instances (DB, login, migrations).
-- `config.py` + `.env`: Runtime config (e.g., `SECRET_KEY`, `SQLALCHEMY_DATABASE_URI`).
-- `templates/`, `static/`: Jinja templates and assets.
-- `instance/`: Local artifacts (e.g., `app.db`) for development only.
+- `app.py`: app factory, local dev server, guarded `/init` bootstrap. Keep production entry points separate.
+- `blueprints/`: feature modules (`auth`, `main`, `admin`), each exposing routes in `routes.py` and optional helpers in `__init__.py`.
+- `models.py`: SQLAlchemy models for `User`, `Role`, and connection profiles; extend here before running migrations.
+- `extensions.py`: shared instances (DB, login manager, migrations) imported by blueprints.
+- `config.py` + `.env`: runtime configuration; never hardcode secrets.
+- `templates/`, `static/`: Jinja2 templates and assets scoped by blueprint name.
+- `tests/`: pytest suites named `test_*.py`; import the factory via `from app import create_app`.
+- `instance/`: local-only artifacts (`app.db`); keep out of version control.
 
 ## Build, Test, and Development Commands
-- Python: 3.11+ recommended.
-- Create env: `python -m venv .venv && source .venv/bin/activate` (Windows: `.venv\\Scripts\\activate`).
-- Install deps: `pip install -r requirements.txt`.
-- Run locally: `flask --app app:create_app run` (or `python app.py`).
-- Debug toggle: `export FLASK_DEBUG=1` to enable debug.
-- DB migrations: `flask db init` (once) → `flask db migrate -m "msg"` → `flask db upgrade`.
-- Seed roles/admin (dev only): visit `http://localhost:5000/init` or add `?token=...` if configured.
+- `python -m venv .venv && source .venv/bin/activate`: create/activate isolated environment.
+- `pip install -r requirements.txt`: install dependencies.
+- `flask --app app:create_app run` or `python app.py`: start the dev server at http://localhost:5000.
+- `export FLASK_DEBUG=1`: enable debug reloader and tracebacks during dev.
+- `pytest -q`: execute the test suite quietly for faster feedback.
+- `flask db migrate -m "describe change" && flask db upgrade`: generate and apply DB migrations.
 
 ## Coding Style & Naming Conventions
-- Python style: PEP 8, 4-space indent, 100-char line target.
-- Names: `snake_case` for functions/vars, `PascalCase` for classes; blueprint names match folder.
-- Blueprints: keep routes in `routes.py`; register via `app.py` with clear prefixes (`/auth`, `/beheer`).
-- Templates: co-locate partials and use consistent prefixes (e.g., `admin_*.html`).
+- Follow PEP 8 with 4-space indents and ~100-character lines.
+- Use `snake_case` for functions/variables, `PascalCase` for classes, blueprint names mirror folder names.
+- Keep routes inside `blueprints/<module>/routes.py`; register blueprints in `app.py` with clear prefixes.
+- Prefer descriptive docstrings and lightweight comments before complex logic; default to ASCII text.
 
 ## Testing Guidelines
-- Framework: pytest (recommended).
-- Location: `tests/test_*.py`; create the app with `from app import create_app`.
-- Example: `client = create_app().test_client()` to test routes.
-- Run: `pytest -q`; target auth, role checks, and admin flows first.
+- Tests rely on pytest fixtures; instantiate clients via `create_app().test_client()`.
+- Name files `tests/test_<feature>.py`; mirror blueprint structure where practical.
+- Target role checks, authentication flows, and admin paths first; add regression tests for reported bugs.
 
 ## Commit & Pull Request Guidelines
-- Commits: imperative, scoped, concise. Example: `feat(admin): add user toggle with role check`.
-- Include: what/why, affected blueprints/models, and migration notes if applicable.
-- PRs: link issues, list steps to test, add screenshots for UI changes (`templates/`), and note config/env impacts.
+- Write imperative commit messages scoped by area, e.g., `feat(admin): add user toggle`. Note migrations when relevant.
+- PRs should link issues, outline test steps, and include screenshots for template changes.
+- Document config impacts (new env vars, secrets) and call out risks or follow-up tasks.
 
 ## Security & Configuration Tips
-- Configure via `.env`: `SECRET_KEY`, `SQLALCHEMY_DATABASE_URI` (SQLite for dev; MSSQL via `pyodbc` in prod).
-- Never commit secrets, `.env`, or local DBs in `instance/`.
-- The `/init` route is for development/bootstrap; keep it disabled in production or require `INIT_TOKEN`.
+- Load secrets from `.env`; never commit credentials or local SQLite files.
+- Protect `/init` outside development by disabling the route or requiring `INIT_TOKEN`.
+- For production MSSQL, configure `SQLALCHEMY_DATABASE_URI` with `pyodbc` drivers and verify TLS settings.

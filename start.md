@@ -1,4 +1,4 @@
-# Start SmartWheels
+# Start DiaLoque
 
 This project can run with the built-in Flask dev server, plus production-grade WSGI servers for macOS/Linux (`gunicorn`) and Windows (`waitress`). The commands below assume you already created and activated a virtual environment (`python -m venv .venv`).
 

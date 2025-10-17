@@ -1,31 +1,106 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="space-hero">
-  <div class="space-hero__panel">
-    <div class="space-hero__visual" aria-hidden="true">
-      <div class="space-hero__stars"></div>
-      <div class="space-hero__glow"></div>
-      <div class="space-hero__earth">
-        <div class="space-hero__earth-core"></div>
-        <div class="space-hero__earth-clouds"></div>
-      </div>
-      <div class="space-hero__orbit">
-        <div class="space-hero__ship">
-          <span class="space-hero__ship-name">SmartWheels</span>
-        </div>
+<section class="ai-hero py-5">
+  <div class="ai-hero__grid">
+    <div class="ai-hero__copy">
+      <div class="ai-hero__eyebrow">Vrije Universiteit Amsterdam - AI Teaching Lab</div>
+      <h1 class="ai-hero__title">DiaLoque helps students design responsible mobility AI</h1>
+      <p class="ai-hero__lead">DiaLoque is the teaching sandbox where VU students explore AI-driven operations while practicing secure governance, role management, and data connectivity.</p>
+      <ul class="ai-hero__highlights list-unstyled">
+        <li><i class="bi bi-cpu"></i> Prototype AI scenarios and observe how predictions influence live mobility data.</li>
+        <li><i class="bi bi-diagram-3"></i> Shape team permissions for lecturers, student squads, and external partners.</li>
+        <li><i class="bi bi-shield-check"></i> Manage integrations with guardrails that model real compliance policies.</li>
+      </ul>
+      <div class="ai-hero__actions">
+        <a href="/beheer/" class="btn btn-primary btn-lg">Launch instructor console</a>
+        <a href="/auth/login" class="btn btn-outline-primary btn-lg">Student sign-in</a>
       </div>
     </div>
-    <div class="space-hero__content">
-      <h1 class="space-hero__title">Welkom bij SmartWheels</h1>
-      <p class="space-hero__lead">
-        Een platform voor multi-project beheer met controle over toegang en verbindingen.
-      </p>
-      <p class="space-hero__text">
-        Volg de reis rond onze digitale aarde en stel verbindingen, gebruikers en projecten
-        moeiteloos in voor een veilige samenwerking tussen teams.
-      </p>
-      <a href="/beheer/" class="btn btn-primary btn-lg">Ga naar Beheer</a>
+    <div class="ai-hero__visual" role="presentation" aria-hidden="true">
+      <div class="ai-hero__visual-inner">
+        <div class="ai-hero__halo"></div>
+        <div class="ai-hero__orb">AI Lab</div>
+        <div class="ai-hero__node ai-hero__node--analysis">
+          <span>Data Insight</span>
+          <small>real-time modelling</small>
+        </div>
+        <div class="ai-hero__node ai-hero__node--students">
+          <span>Student Teams</span>
+          <small>collaboration</small>
+        </div>
+        <div class="ai-hero__node ai-hero__node--security">
+          <span>Secure Access</span>
+          <small>roles &amp; policies</small>
+        </div>
+        <div class="ai-hero__pulse"></div>
+      </div>
     </div>
   </div>
-</div>
+</section>
+
+<section class="ai-section py-5">
+  <div class="ai-section__header text-center">
+    <h2>Why bring DiaLoque into your course?</h2>
+    <p>Blend theory, studio assignments, and authentic data flows inside a single, well-governed workspace.</p>
+  </div>
+  <div class="row g-4">
+    <div class="col-md-4">
+      <div class="ai-card">
+        <div class="ai-card__icon bg-gradient-primary"><i class="bi bi-graph-up-arrow"></i></div>
+        <h3>Project-first practice</h3>
+        <p>Adopt ready-to-run mobility cases so students analyse EV charging, routing, and congestion independently.</p>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="ai-card">
+        <div class="ai-card__icon bg-gradient-secondary"><i class="bi bi-people"></i></div>
+        <h3>Role-aware collaboration</h3>
+        <p>Mirror production organisations by assigning learners as operators, reviewers, or analysts.</p>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="ai-card">
+        <div class="ai-card__icon bg-gradient-tertiary"><i class="bi bi-lightbulb"></i></div>
+        <h3>AI-first mindset</h3>
+        <p>Connect machine learning components and debate ethical boundaries without leaving the workflow.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="ai-roadmap py-5">
+  <div class="ai-roadmap__wrapper">
+    <h2 class="ai-roadmap__title">A semester in three phases</h2>
+    <ol class="ai-roadmap__list">
+      <li>
+        <div class="ai-roadmap__step">Start</div>
+        <h3>Foundation Sprint</h3>
+        <p>Activate course assets, onboard classes, and introduce the instructor console with a guided walkthrough.</p>
+      </li>
+      <li>
+        <div class="ai-roadmap__step">Experiment</div>
+        <h3>AI Lab Sessions</h3>
+        <p>Run experiments with datasets, model versions, and connectors while capturing decision logs for critique.</p>
+      </li>
+      <li>
+        <div class="ai-roadmap__step">Impact</div>
+        <h3>Deployment Review</h3>
+        <p>Have teams present their scenario, governance plan, and monitoring dashboard to close the learning loop.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section class="ai-cta py-5">
+  <div class="ai-cta__panel">
+    <div class="ai-cta__copy">
+      <h2>Ready to mentor the next cohort?</h2>
+      <p>Sign in to the instructor console to launch new projects, configure roles, and provision sample datasets.</p>
+    </div>
+    <div class="ai-cta__actions">
+      <a href="/beheer/" class="btn btn-primary btn-lg">Go to admin console</a>
+      <a href="mailto:ai-lab@vu.nl" class="btn btn-outline-light btn-lg">Schedule onboarding</a>
+    </div>
+  </div>
+</section>
 {% endblock %}
