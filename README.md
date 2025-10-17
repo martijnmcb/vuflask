@@ -1,20 +1,20 @@
 # DiaLoque - AI Teaching Platform
 
-DiaLoque is a teaching lab application for Vrije Universiteit Amsterdam that lets students explore responsible AI mobility scenarios while lecturers manage access, data connections, and governance workflows. The project doubles as an instructional example for AI-assisted software education.
+DiaLoque is a teaching lab application for Vrije Universiteit Amsterdam that lets students experiment with responsible AI mobility scenarios while lecturers manage access, artefacts, and governance workflows. The codebase doubles as a teaching example for AI-assisted software development.
 
 ## Architecture Overview
-- `app.py` provides the Flask application factory, registers blueprints, and offers a guarded `/init` seeding route.
-- `blueprints/` contains feature modules:
-  - `auth` for login/logout flows,
-  - `main` for the homepage and student-facing routes,
-  - `admin` for instructor tooling at `/beheer/`,
-  - `lecturer` for assignment management and document uploads at `/lecturer/`.
-- `models.py` defines SQLAlchemy models (`User`, `Role`, `UserProject`, `ConnectionSetting`, `ConnectionProfile`) and helpers for password hashing.
-- `extensions.py` initialises shared instances (SQLAlchemy, Flask-Migrate, Flask-Login).
-- `templates/` and `static/` host the refreshed DiaLoque UI, including the AI-themed homepage (`templates/main_home.html`) and supporting styles in `static/style.css`.
-- `services/openai_summarizer.py` wraps OpenAI calls and PDF text extraction for generating assignment summaries.
-- `config.py` loads settings from environment variables via `python-dotenv`; local SQLite data lives in `instance/app.db`.
-- `tests/` contains pytest route smoke tests that use the application factory fixture (`PYTHONPATH=. pytest`).
+- `app.py` – Flask application factory, blueprint registration, and guarded `/init` bootstrap route.
+- `blueprints/`
+  - `auth` – user authentication views.
+  - `main` – homepage plus student workflow (assignment selection, uploads, review).
+  - `admin` – admin console at `/beheer/` for user management.
+  - `lecturer` – assignment management, document uploads, and summaries at `/lecturer/`.
+- `models.py` – SQLAlchemy models for users/roles/projects, assignment artefacts, student submissions, and future chat transcripts.
+- `extensions.py` – shared Flask extensions (SQLAlchemy, LoginManager, Alembic).
+- `services/openai_summarizer.py` – OpenAI integration and PDF text extraction (supports SDK v0.x and v1.x).
+- `templates/`, `static/` – Jinja UI (AI-themed homepage, lecturer & student dashboards) and custom CSS.
+- `config.py` – dotenv-driven configuration (`SECRET_KEY`, DB URI, OpenAI key, etc.).
+- `tests/` – pytest smoke tests for routes using the application factory (`PYTHONPATH=. pytest`).
 
 ## Technology Stack
 | Component | Version |
@@ -23,6 +23,7 @@ DiaLoque is a teaching lab application for Vrije Universiteit Amsterdam that let
 | Flask | 3.1.2 |
 | Flask-Login | 0.6.3 |
 | Flask-WTF | 1.2.2 |
+| email-validator | 2.3.0 |
 | Flask-Migrate | 4.1.0 |
 | Flask-SQLAlchemy | 3.1.1 |
 | SQLAlchemy | 2.0.44 |
@@ -32,56 +33,65 @@ DiaLoque is a teaching lab application for Vrije Universiteit Amsterdam that let
 | pytest | 8.4.2 |
 | gunicorn | 23.0.0 |
 | waitress | 3.0.2 |
+| openai | 2.4.0 |
+| pypdf | 6.1.1 |
 
 ## Getting Started
-1. **Create / activate the virtual environment** (existing project uses `venv/`):
+1. **Create / activate virtualenv** (existing project uses `venv/`):
    ```bash
    python3.13 -m venv venv
-   source venv/bin/activate  # Windows: venv\Scripts\activate
+   source venv/bin/activate            # Windows: venv\Scripts\activate
    ```
 2. **Install dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
-3. **Configure environment variables** (`.env` in project root):
+3. **Configure environment** (`.env` in project root):
    ```env
    SECRET_KEY=change-me
    SQLALCHEMY_DATABASE_URI=sqlite:///instance/app.db
    FLASK_APP=app:create_app
-   FLASK_DEBUG=1           # optional during development
-   INIT_TOKEN=choose-a-secret  # optional, used to guard /init when FLASK_DEBUG!=1
-   ADMIN_SEED_PASSWORD=admin123  # optional override for seeded admin user
-   OPENAI_API_KEY=sk-...         # required for document summarisation
+   FLASK_DEBUG=1                 # optional for dev
+   INIT_TOKEN=choose-a-secret    # optional for protected /init in non-debug
+   ADMIN_SEED_PASSWORD=admin123  # optional override
+   OPENAI_API_KEY=sk-...         # required for summaries
    ```
-4. **Run database migrations / create schema**:
+4. **Apply migrations**:
    ```bash
    flask db upgrade
    ```
-5. **Seed default roles and admin user** (only in development):
+5. **Seed default roles/admin** (dev only):
    ```bash
-   # With debug on or by providing ?token=<INIT_TOKEN>
+   # With debug enabled or ?token=<INIT_TOKEN>
    curl http://localhost:5000/init
    ```
-6. **Start the development server**:
+6. **Run locally**:
    ```bash
    flask --app app:create_app run --debug
    # or
    python app.py
    ```
-7. **Production entry points**: `gunicorn wsgi:app` (Linux/macOS) or `waitress-serve --listen=0.0.0.0:8000 wsgi:app` (Windows).
+7. **Production entry points**:
+   ```bash
+   gunicorn wsgi:app
+   # Windows-friendly
+   waitress-serve --listen=0.0.0.0:8000 wsgi:app
+   ```
 
-> The summarisation workflow depends on the `openai` SDK and optional `pypdf` for richer text extraction. Install them via `pip install openai pypdf` (network access required).
+> Summaries require the `openai` SDK and benefit from `pypdf` for text extraction. Install network-dependent packages ahead of time in restricted environments.
 
 ## Testing
 ```bash
 source venv/bin/activate
 PYTHONPATH=. pytest -q
 ```
-> The `PYTHONPATH=.` prefix ensures the root package is discoverable when running inside the sandbox.
+> `PYTHONPATH=.` is required because the project is not installed as a package.
 
 ## Recent Decisions (Changelog-lite)
-- **Homepage refresh (DiaLoque theme)** – Replaced the previous SmartWheels landing page with an AI teaching hero, roadmap, and CTA tailored to VU cohorts (`templates/main_home.html`, `static/style.css`).
-- **Brand rename** – Updated navigation, metadata, and supporting docs to use the DiaLoque name and English copy (`templates/base.html`, `start.md`, documentation).
-- **Dark-mode contrast fix** – Tweaked feature card palette for better readability in dark theme (`static/style.css`).
-- **Assignment document workflows** – Lecturer console now supports creating, editing, replacing, deleting, and summarising four-per-assignment PDF artefacts with OpenAI integration (`blueprints/lecturer`, `models.py`, `services/openai_summarizer.py`).
-- **Contributor guide** – Added `AGENTS.md` to align new contributors around structure, workflow, and security expectations.
+- **Homepage refresh** – Replaced SmartWheels theming with DiaLoque AI teaching hero/roadmap (`templates/main_home.html`, `static/style.css`).
+- **Brand rename** – Updated navigation, metadata, and docs to the DiaLoque name (`templates/base.html`, `start.md`).
+- **Dark-mode polish** – Improved feature-card contrast for night mode (`static/style.css`).
+- **Lecturer workflow** – Manage four-per-assignment PDFs with OpenAI summaries (create/edit/delete, download) stored in the database (`blueprints/lecturer`, `models.Assignment*`, `services/openai_summarizer.py`).
+- **Student workflow** – Multi-step `/student` dashboard for assignment selection, case upload, automatic student summaries, and lecturer summary preview (`blueprints/main/routes.py`, `templates/student_dashboard.html`, `models.StudentSubmission`).
+- **Data model foundations** – Added `StudentSubmissionMessage` to support upcoming conversation transcripts.
+- **Contributor guide** – Authored `AGENTS.md` for repo structure, style, and security expectations.

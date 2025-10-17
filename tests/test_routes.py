@@ -156,3 +156,76 @@ def test_generate_summary_updates_document(monkeypatch, auth_client, app):
         )
         assert doc1.summary == "Summary via gpt-4o-mini"
         assert doc1.summary_model == "gpt-4o-mini"
+
+
+def test_student_page_requires_login(client):
+    resp = client.get("/student", follow_redirects=False)
+    assert resp.status_code in (301, 302)
+    assert "/auth/login" in resp.headers.get("Location", "")
+
+
+def test_student_selects_assignment(auth_client, app):
+    assignment_id = _create_assignment(auth_client, app, title="Student Choice")
+
+    resp = auth_client.get("/student")
+    assert resp.status_code == 200
+    assert b"Student Choice" in resp.data
+
+    post = auth_client.post(
+        "/student?step=1",
+        data={"select-assignment_id": str(assignment_id)},
+        follow_redirects=True,
+    )
+    assert post.status_code == 200
+    assert b"Student Choice" in post.data
+
+    with auth_client.session_transaction() as sess:
+        assert sess.get("active_assignment_id") == assignment_id
+        assert sess.get("active_assignment_title") == "Student Choice"
+
+
+def test_student_upload_case_analysis(monkeypatch, auth_client, app):
+    assignment_id = _create_assignment(auth_client, app, title="Upload Flow")
+
+    auth_client.post(
+        "/student?step=1",
+        data={"select-assignment_id": str(assignment_id)},
+        follow_redirects=True,
+    )
+
+    class DummyResult:
+        def __init__(self, text, model):
+            self.text = text
+            self.model = model
+
+    def fake_summary(content, model):
+        return DummyResult(f"Student summary via {model}", model)
+
+    monkeypatch.setattr(
+        "blueprints.main.routes.summarise_document_content",
+        fake_summary,
+    )
+
+    response = auth_client.post(
+        "/student?step=2",
+        data={
+            "upload-assignment_id": str(assignment_id),
+            "upload-model": "gpt-3.5-turbo",
+            "upload-document": (BytesIO(b"student pdf"), "analysis.pdf"),
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+
+    from extensions import db
+    from models import StudentSubmission
+
+    with app.app_context():
+        submission = (
+            db.session.query(StudentSubmission)
+            .filter_by(assignment_id=assignment_id)
+            .one()
+        )
+        assert submission.summary == "Student summary via gpt-3.5-turbo"
+        assert submission.summary_model == "gpt-3.5-turbo"

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="row g-4">
-  <div class="col-lg-5">
+  <div class="col-lg-6">
     <div class="card shadow-sm h-100">
       <div class="card-header">
         <h2 class="h5 mb-0">Create assignment</h2>
@@ -43,9 +43,8 @@
                 {% endfor %}
               </div>
               <div class="col-sm-6">
-                {{ file_field.label(class="form-label") }}
+                {{ file_field.label(class="form-label", text=file_field.label.text.replace('(PDF)', '(PDF ONLY)')) }}
                 {{ file_field(class="form-control") }}
-                <div class="form-text">PDF files only</div>
                 {% for error in file_field.errors %}
                   <div class="invalid-feedback d-block">{{ error }}</div>
                 {% endfor %}
@@ -60,7 +59,7 @@
       </div>
     </div>
   </div>
-  <div class="col-lg-7">
+  <div class="col-lg-6">
     <div class="card shadow-sm h-100">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h2 class="h5 mb-0">Assignments</h2>

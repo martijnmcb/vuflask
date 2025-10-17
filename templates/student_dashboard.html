@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block content %}
+{% set progress = 33 if stage == 1 else (66 if stage == 2 else 100) %}
+<div class="mb-4">
+  <ol class="breadcrumb mb-3">
+    <li class="breadcrumb-item {{ 'active' if stage >= 1 else '' }}">1. Choose assignment</li>
+    <li class="breadcrumb-item {{ 'active' if stage >= 2 else '' }}">2. Upload analysis</li>
+    <li class="breadcrumb-item {{ 'active' if stage >= 3 else '' }}">3. Review &amp; chat</li>
+  </ol>
+  <div class="progress" style="height: 6px;">
+    <div class="progress-bar" role="progressbar" style="width: {{ progress }}%" aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100"></div>
+  </div>
+</div>
+
+{% if stage == 1 %}
+  <div class="row justify-content-center">
+    <div class="col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h2 class="h5 mb-0">Step 1 · Choose assignment</h2>
+          <span class="badge text-bg-secondary">Required</span>
+        </div>
+        <div class="card-body">
+          <p class="text-muted small mb-3">Start by choosing which assignment you want to work on this session.</p>
+          {% if assignments %}
+          <form method="post" novalidate>
+            {{ select_form.hidden_tag() }}
+            <div class="mb-3">
+              {{ select_form.assignment_id.label(class="form-label") }}
+              {{ select_form.assignment_id(class="form-select") }}
+              {% for error in select_form.assignment_id.errors %}
+                <div class="invalid-feedback d-block">{{ error }}</div>
+              {% endfor %}
+            </div>
+            <div class="d-flex justify-content-end">
+              <button type="submit" class="btn btn-primary">Continue to upload</button>
+            </div>
+          </form>
+          {% else %}
+          <div class="alert alert-info mb-0">No assignments are currently available. Check back later or contact your lecturer.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% elif stage == 2 %}
+  <div class="row justify-content-center">
+    <div class="col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h2 class="h5 mb-0">Step 2 · Upload your case analysis</h2>
+          <a href="{{ url_for('main.student', step=1) }}" class="btn btn-link btn-sm">&laquo; Back</a>
+        </div>
+        <div class="card-body">
+          {% if active_assignment_title %}
+            <p class="text-muted small mb-3">Active assignment: <strong>{{ active_assignment_title }}</strong></p>
+            <form method="post" enctype="multipart/form-data" novalidate>
+              {{ upload_form.hidden_tag() }}
+              {{ upload_form.assignment_id() }}
+              <div class="mb-3">
+                {{ upload_form.document.label(class="form-label") }}
+                {{ upload_form.document(class="form-control") }}
+                <div class="form-text">Upload a PDF version of your analysis.</div>
+                {% for error in upload_form.document.errors %}
+                  <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+              </div>
+              <div class="mb-3">
+                {{ upload_form.model.label(class="form-label") }}
+                {{ upload_form.model(class="form-select") }}
+                {% for error in upload_form.model.errors %}
+                  <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+              </div>
+              <div class="d-flex justify-content-end gap-2">
+                <a href="{{ url_for('main.student', step=1) }}" class="btn btn-outline-secondary">Back</a>
+                <button type="submit" class="btn btn-primary">Upload &amp; generate summary</button>
+              </div>
+            </form>
+          {% else %}
+            <div class="alert alert-warning mb-0">Select an assignment before uploading your case analysis.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% else %}
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card shadow-sm" style="max-height:45vh; overflow:auto;">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h2 class="h6 mb-0">Lecturer summary</h2>
+          <a href="{{ url_for('main.student', step=2) }}" class="btn btn-link btn-sm">&laquo; Back</a>
+        </div>
+        <div class="card-body">
+          {% if assignment_summary_doc and assignment_summary_doc.summary %}
+            <p>{{ assignment_summary_doc.summary }}</p>
+            {% if assignment_summary_doc.summary_model %}
+              <p class="text-muted small mb-0">Model: {{ assignment_summary_doc.summary_model }} · Updated {{ assignment_summary_doc.summary_updated_at.strftime('%d %b %Y %H:%M') if assignment_summary_doc.summary_updated_at else 'n/a' }}</p>
+            {% endif %}
+          {% else %}
+            <p class="text-muted mb-0">The lecturer has not published a summary for this assignment yet.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card shadow-sm" style="max-height:45vh; overflow:auto;">
+        <div class="card-header">
+          <h2 class="h6 mb-0">Your latest summary</h2>
+        </div>
+        <div class="card-body">
+          {% if student_submissions %}
+            {% set latest = student_submissions[0] %}
+            <p><strong>{{ latest.filename }}</strong></p>
+            {% if latest.summary %}
+              <p>{{ latest.summary }}</p>
+              <p class="text-muted small mb-0">Model: {{ latest.summary_model or 'n/a' }} · Uploaded {{ latest.uploaded_at.strftime('%d %b %Y %H:%M') }}</p>
+            {% else %}
+              <p class="text-muted mb-0">Summary not available for this upload.</p>
+            {% endif %}
+          {% else %}
+            <p class="text-muted mb-0">Upload your case analysis to generate a personal summary.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if student_submissions|length > 1 %}
+  <div class="card shadow-sm mt-4" style="max-height:25vh; overflow:auto;">
+    <div class="card-header">
+      <h2 class="h6 mb-0">Submission history</h2>
+    </div>
+    <div class="list-group list-group-flush">
+      {% for submission in student_submissions[1:] %}
+      <div class="list-group-item">
+        <div class="d-flex justify-content-between flex-wrap gap-2">
+          <div>
+            <strong>{{ submission.filename }}</strong>
+            <span class="text-muted small"> · {{ submission.uploaded_at.strftime('%d %b %Y %H:%M') }}</span>
+          </div>
+          <div class="text-muted small">{{ '%.1f'|format(submission.file_size / 1024) }} KB</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="card shadow-sm mt-4" style="min-height:35vh;">
+    <div class="card-header">
+      <h2 class="h6 mb-0">Step 4 · Interactive dialogue (coming soon)</h2>
+    </div>
+    <div class="card-body text-muted">
+      <p class="mb-0">This area will host the interactive conversation with the AI assistant. Each message will be stored alongside the summaries so future prompts can reference the full dialogue.</p>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

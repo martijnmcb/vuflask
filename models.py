@@ -30,6 +30,11 @@ class User(UserMixin, db.Model):
         cascade="all, delete-orphan",
         back_populates="user",
     )
+    submissions = db.relationship(
+        "StudentSubmission",
+        cascade="all, delete-orphan",
+        back_populates="student",
+    )
 
     def set_password(self, raw):
         if raw is None:
@@ -134,6 +139,11 @@ class Assignment(db.Model):
         cascade="all, delete-orphan",
         order_by="AssignmentDocument.slot",
     )
+    submissions = db.relationship(
+        "StudentSubmission",
+        back_populates="assignment",
+        cascade="all, delete-orphan",
+    )
 
 
 class AssignmentDocument(db.Model):
@@ -169,3 +179,48 @@ class AssignmentDocument(db.Model):
         self.summary = text.strip() if text else None
         self.summary_model = model_name
         self.summary_updated_at = datetime.utcnow()
+
+
+class StudentSubmission(db.Model):
+    __tablename__ = "student_submissions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    assignment_id = db.Column(db.Integer, db.ForeignKey("assignments.id"), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    mimetype = db.Column(db.String(120), nullable=False, default="application/pdf")
+    file_size = db.Column(db.Integer, nullable=False)
+    content = db.Column(db.LargeBinary, nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    summary = db.Column(db.Text)
+    summary_model = db.Column(db.String(64))
+    summary_updated_at = db.Column(db.DateTime)
+
+    assignment = db.relationship("Assignment", back_populates="submissions")
+    student = db.relationship("User", back_populates="submissions")
+    messages = db.relationship(
+        "StudentSubmissionMessage",
+        back_populates="submission",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        db.Index("ix_submission_assignment_student", "assignment_id", "student_id"),
+    )
+
+    def set_summary(self, text: str, model_name: Optional[str] = None):
+        self.summary = text.strip() if text else None
+        self.summary_model = model_name
+        self.summary_updated_at = datetime.utcnow()
+
+
+class StudentSubmissionMessage(db.Model):
+    __tablename__ = "student_submission_messages"
+
+    id = db.Column(db.Integer, primary_key=True)
+    submission_id = db.Column(db.Integer, db.ForeignKey("student_submissions.id"), nullable=False)
+    role = db.Column(db.String(20), nullable=False)  # 'student' or 'assistant'
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    submission = db.relationship("StudentSubmission", back_populates="messages")
