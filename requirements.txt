@@ -11,3 +11,5 @@ pyodbc
 pytest
 gunicorn
 waitress
+openai
+pypdf

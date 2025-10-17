@@ -23,6 +23,7 @@ __pycache__/
 venv/
 env/
 
+
 # === Build / distribution ===
 build/
 dist/

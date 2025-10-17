@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="mb-4 d-flex justify-content-between align-items-start flex-wrap gap-3">
+  <div>
+    <p class="text-muted small mb-1">Edit assignment</p>
+    <h1 class="h3 mb-1">{{ assignment.title }}</h1>
+    <p class="text-muted mb-0">Update details or replace specific PDF documents. Leave a file field empty to keep the current upload.</p>
+  </div>
+  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('lecturer.assignment_detail', assignment_id=assignment.id) }}">
+    <i class="bi bi-arrow-left"></i> Back to assignment
+  </a>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {{ form.hidden_tag() }}
+      <div class="row g-4">
+        <div class="col-lg-6">
+          <div class="mb-3">
+            {{ form.title.label(class="form-label") }}
+            {{ form.title(class="form-control", placeholder="Assignment title") }}
+            {% for error in form.title.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+          <div class="mb-4">
+            {{ form.description.label(class="form-label") }}
+            {{ form.description(class="form-control") }}
+            {% for error in form.description.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="alert alert-info small" role="alert">
+            <i class="bi bi-info-circle"></i> Uploading a new PDF will replace the stored document. The existing file information is shown below.
+          </div>
+        </div>
+      </div>
+
+{% for row in doc_rows %}
+{% set document = row.document %}
+{% set label_field = row.label_field %}
+{% set file_field = row.file_field %}
+  <div class="border rounded-3 p-3 mb-4">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-5">
+        {{ label_field.label(class="form-label") }}
+        {{ label_field(class="form-control") }}
+            {% for error in label_field.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Current file</label>
+            <div class="form-control-plaintext small">
+              <strong>{{ document.filename }}</strong><br>
+              {{ '%.1f'|format(document.file_size / 1024) }} KB · {{ document.uploaded_at.strftime('%d %b %Y %H:%M') if document.uploaded_at else 'n/a' }}
+            </div>
+          </div>
+          <div class="col-md-3">
+            {{ file_field.label(class="form-label") }}
+            {{ file_field(class="form-control") }}
+            <div class="form-text">Optional replacement (PDF)</div>
+            {% for error in file_field.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+
+      <div class="d-flex gap-3">
+        <button type="submit" class="btn btn-primary">Save changes</button>
+        <a class="btn btn-outline-secondary" href="{{ url_for('lecturer.assignment_detail', assignment_id=assignment.id) }}">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

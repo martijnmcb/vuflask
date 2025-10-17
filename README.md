@@ -7,10 +7,12 @@ DiaLoque is a teaching lab application for Vrije Universiteit Amsterdam that let
 - `blueprints/` contains feature modules:
   - `auth` for login/logout flows,
   - `main` for the homepage and student-facing routes,
-  - `admin` for instructor tooling at `/beheer/`.
+  - `admin` for instructor tooling at `/beheer/`,
+  - `lecturer` for assignment management and document uploads at `/lecturer/`.
 - `models.py` defines SQLAlchemy models (`User`, `Role`, `UserProject`, `ConnectionSetting`, `ConnectionProfile`) and helpers for password hashing.
 - `extensions.py` initialises shared instances (SQLAlchemy, Flask-Migrate, Flask-Login).
 - `templates/` and `static/` host the refreshed DiaLoque UI, including the AI-themed homepage (`templates/main_home.html`) and supporting styles in `static/style.css`.
+- `services/openai_summarizer.py` wraps OpenAI calls and PDF text extraction for generating assignment summaries.
 - `config.py` loads settings from environment variables via `python-dotenv`; local SQLite data lives in `instance/app.db`.
 - `tests/` contains pytest route smoke tests that use the application factory fixture (`PYTHONPATH=. pytest`).
 
@@ -49,6 +51,7 @@ DiaLoque is a teaching lab application for Vrije Universiteit Amsterdam that let
    FLASK_DEBUG=1           # optional during development
    INIT_TOKEN=choose-a-secret  # optional, used to guard /init when FLASK_DEBUG!=1
    ADMIN_SEED_PASSWORD=admin123  # optional override for seeded admin user
+   OPENAI_API_KEY=sk-...         # required for document summarisation
    ```
 4. **Run database migrations / create schema**:
    ```bash
@@ -67,6 +70,8 @@ DiaLoque is a teaching lab application for Vrije Universiteit Amsterdam that let
    ```
 7. **Production entry points**: `gunicorn wsgi:app` (Linux/macOS) or `waitress-serve --listen=0.0.0.0:8000 wsgi:app` (Windows).
 
+> The summarisation workflow depends on the `openai` SDK and optional `pypdf` for richer text extraction. Install them via `pip install openai pypdf` (network access required).
+
 ## Testing
 ```bash
 source venv/bin/activate
@@ -78,4 +83,5 @@ PYTHONPATH=. pytest -q
 - **Homepage refresh (DiaLoque theme)** – Replaced the previous SmartWheels landing page with an AI teaching hero, roadmap, and CTA tailored to VU cohorts (`templates/main_home.html`, `static/style.css`).
 - **Brand rename** – Updated navigation, metadata, and supporting docs to use the DiaLoque name and English copy (`templates/base.html`, `start.md`, documentation).
 - **Dark-mode contrast fix** – Tweaked feature card palette for better readability in dark theme (`static/style.css`).
+- **Assignment document workflows** – Lecturer console now supports creating, editing, replacing, deleting, and summarising four-per-assignment PDF artefacts with OpenAI integration (`blueprints/lecturer`, `models.py`, `services/openai_summarizer.py`).
 - **Contributor guide** – Added `AGENTS.md` to align new contributors around structure, workflow, and security expectations.

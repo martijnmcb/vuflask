@@ -1,7 +1,9 @@
 from datetime import datetime
+from typing import Optional
 from passlib.hash import pbkdf2_sha256
 from flask_login import UserMixin
 from extensions import db
+import base64
 
 # Tabel associatie User <-> Role (many-to-many)
 user_roles = db.Table(
@@ -116,3 +118,54 @@ class ConnectionProfile(db.Model):
             f"?driver={self.odbc_driver.replace(' ', '+')}"
             f"&TrustServerCertificate={trust}"
         )
+
+
+class Assignment(db.Model):
+    __tablename__ = "assignments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    documents = db.relationship(
+        "AssignmentDocument",
+        back_populates="assignment",
+        cascade="all, delete-orphan",
+        order_by="AssignmentDocument.slot",
+    )
+
+
+class AssignmentDocument(db.Model):
+    __tablename__ = "assignment_documents"
+
+    id = db.Column(db.Integer, primary_key=True)
+    assignment_id = db.Column(db.Integer, db.ForeignKey("assignments.id"), nullable=False)
+    slot = db.Column(db.Integer, nullable=False)
+    label = db.Column(db.String(120), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    mimetype = db.Column(db.String(120), nullable=False, default="application/pdf")
+    file_size = db.Column(db.Integer, nullable=False)
+    content = db.Column(db.LargeBinary, nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    notes = db.Column(db.Text)
+    summary = db.Column(db.Text)
+    summary_model = db.Column(db.String(64))
+    summary_updated_at = db.Column(db.DateTime)
+
+    assignment = db.relationship("Assignment", back_populates="documents")
+
+    __table_args__ = (
+        db.UniqueConstraint("assignment_id", "slot", name="uq_assignment_document_slot"),
+    )
+
+    @property
+    def base64_content(self):
+        if not self.content:
+            return None
+        return base64.b64encode(self.content).decode("ascii")
+
+    def set_summary(self, text: str, model_name: Optional[str] = None):
+        self.summary = text.strip() if text else None
+        self.summary_model = model_name
+        self.summary_updated_at = datetime.utcnow()

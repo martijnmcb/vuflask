@@ -6,6 +6,7 @@ from models import User, Role
 from blueprints.auth.routes import bp as auth_bp
 from blueprints.main.routes import bp as main_bp
 from blueprints.admin.routes import bp as admin_bp
+from blueprints.lecturer import bp as lecturer_bp
 
 def create_app():
     app = Flask(__name__)
@@ -19,6 +20,7 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(lecturer_bp)
 
     @app.route("/init")
     def init():
