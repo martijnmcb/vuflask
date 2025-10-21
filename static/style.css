@@ -539,3 +539,92 @@ html.theme-dark .admin-actions__card-text { color: rgba(215, 224, 245, 0.75); }
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   }
 }
+
+/* ----------------------------- */
+/* Student dashboard cards       */
+/* ----------------------------- */
+
+.summary-card,
+.student-summary-card {
+  background: linear-gradient(135deg, #ffffff, #f4f6fb);
+  border: 1px solid rgba(13, 110, 253, 0.08);
+}
+
+.student-prompts-card {
+  background: linear-gradient(135deg, #ffffff, #f9fbff);
+  border: 1px solid rgba(13, 110, 253, 0.08);
+}
+
+.student-prompts-card .card-body {
+  color: #1f2933;
+}
+
+.student-prompts-card .card-body p {
+  color: rgba(31, 45, 68, 0.78);
+}
+
+.summary-card .card-body,
+.student-summary-card .card-body {
+  color: #1f2933;
+}
+
+.summary-card .card-body p,
+.student-summary-card .card-body p {
+  color: rgba(31, 45, 68, 0.78);
+}
+
+html.theme-dark .summary-card,
+html.theme-dark .student-summary-card {
+  background: linear-gradient(135deg, rgba(24, 32, 48, 0.95), rgba(16, 23, 36, 0.92));
+  border: 1px solid rgba(124, 182, 255, 0.24);
+  box-shadow: 0 14px 28px rgba(5, 12, 28, 0.55);
+}
+
+html.theme-dark .student-prompts-card {
+  background: linear-gradient(135deg, rgba(19, 28, 44, 0.95), rgba(12, 19, 33, 0.92));
+  border: 1px solid rgba(124, 182, 255, 0.18);
+  box-shadow: 0 14px 28px rgba(5, 12, 28, 0.45);
+}
+
+html.theme-dark .student-prompts-card .card-body {
+  color: rgba(227, 236, 252, 0.92);
+}
+
+html.theme-dark .student-prompts-card .card-body p {
+  color: rgba(227, 236, 252, 0.88);
+}
+
+html.theme-dark .summary-card .card-header,
+html.theme-dark .student-summary-card .card-header {
+  background-color: transparent;
+  border-bottom-color: rgba(124, 182, 255, 0.18);
+}
+
+html.theme-dark .summary-card .card-body,
+html.theme-dark .student-summary-card .card-body {
+  color: rgba(227, 236, 252, 0.92);
+}
+
+html.theme-dark .summary-card .card-body p,
+html.theme-dark .student-summary-card .card-body p {
+  color: rgba(227, 236, 252, 0.88);
+}
+
+.markdown-output {
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+.markdown-output strong {
+  font-weight: 600;
+}
+
+.markdown-output em {
+  font-style: italic;
+}
+
+.markdown-output ul,
+.markdown-output ol {
+  margin-bottom: 0.75rem;
+  padding-left: 1.25rem;
+}

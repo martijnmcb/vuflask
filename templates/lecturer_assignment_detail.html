@@ -56,7 +56,7 @@
 </div>
 
 {% if primary_doc %}
-<div class="card shadow-sm mt-4">
+<div class="card shadow-sm mt-4 summary-card">
   <div class="card-header d-flex justify-content-between align-items-center">
     <h2 class="h5 mb-0">Document 1 summary</h2>
     {% if primary_doc.summary_updated_at %}
@@ -85,6 +85,69 @@
   </div>
 </div>
 {% endif %}
+
+<div class="card shadow-sm mt-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h2 class="h5 mb-0">Conversation prompts</h2>
+    <span class="badge text-bg-secondary">{{ assignment.prompts|length }}</span>
+  </div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('lecturer.add_prompt', assignment_id=assignment.id) }}" novalidate class="mb-4">
+      {{ prompt_form.hidden_tag() }}
+      <div class="row g-3">
+        <div class="col-md-4">
+          {{ prompt_form.title.label(class="form-label") }}
+          {{ prompt_form.title(class="form-control", placeholder="e.g. Reflection focus") }}
+          {% for error in prompt_form.title.errors %}
+            <div class="invalid-feedback d-block">{{ error }}</div>
+          {% endfor %}
+        </div>
+        <div class="col-md-8">
+          {{ prompt_form.prompt_text.label(class="form-label") }}
+          {{ prompt_form.prompt_text(class="form-control", placeholder="Guidance or questions to include in the AI context.") }}
+          {% for error in prompt_form.prompt_text.errors %}
+            <div class="invalid-feedback d-block">{{ error }}</div>
+          {% endfor %}
+        </div>
+        <div class="col-12">
+          {{ prompt_form.example_response.label(class="form-label") }}
+          {{ prompt_form.example_response(class="form-control", placeholder="Optional sample assistant reply") }}
+          {% for error in prompt_form.example_response.errors %}
+            <div class="invalid-feedback d-block">{{ error }}</div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="d-flex justify-content-end gap-2 mt-3">
+        <button type="submit" class="btn btn-primary">Add prompt</button>
+      </div>
+    </form>
+
+    {% if assignment.prompts %}
+      <div class="list-group list-group-flush">
+        {% for prompt in assignment.prompts %}
+        <div class="list-group-item">
+          <div class="d-flex justify-content-between align-items-start gap-3">
+            <div>
+              <h3 class="h6 mb-1">{{ prompt.title }}</h3>
+              <p class="mb-1">{{ prompt.prompt_text }}</p>
+              {% if prompt.example_response %}
+                <p class="text-muted small mb-0">Example response: {{ prompt.example_response }}</p>
+              {% endif %}
+            </div>
+            <form method="post" action="{{ url_for('lecturer.delete_prompt', prompt_id=prompt.id) }}" onsubmit="return confirm('Remove this prompt?');">
+              {{ prompt_delete_form.csrf_token }}
+              {{ prompt_delete_form.prompt_id(value=prompt.id) }}
+              <button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-muted mb-0">No prompts yet. Add lecturer guidance to tailor the chat assistant.</p>
+    {% endif %}
+  </div>
+</div>
 
 <form method="post" action="{{ url_for('lecturer.assignment_delete', assignment_id=assignment.id) }}" class="mt-4" onsubmit="return confirm('Delete this assignment and all documents?');">
   {{ delete_form.hidden_tag() }}

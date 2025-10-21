@@ -1,66 +1,65 @@
 # Handoff Notes
 
 ## Current Status
-- DiaLoque branding, English copy, and AI-themed homepage live across navigation and docs.
-- Lecturer console supports creating assignments, managing four PDF artefacts, replacing documents, deleting assignments, and generating OpenAI summaries for the primary lecturer document.
-- Student dashboard implements a three-step workflow: assignment selection, case-analysis upload with automatic summarisation, and review of both lecturer and student summaries.
-- Database schema includes foundations for future conversational AI (student submissions + message log tables).
+- DiaLoque branding, English copy, and AI-themed homepage are live across navigation and docs.
+- Lecturer console supports full assignment lifecycle (create/edit/delete), four PDF artefacts, OpenAI summaries, and configurable lecturer prompts.
+- Student dashboard delivers a four-step wizard: assignment selection, case-analysis upload + summary, review of lecturer/student summaries, and an LLM chat stage with restart + PDF export.
+- Database captures submissions, prompts, conversation logs, and summary metadata for future AI analysis.
 
 ## Open Challenges
-- Role seeds remain Dutch (`Beheerder`, `Gebruiker`, `Lezer`); confirm if they should be localised to English throughout the UI and seed script.
-- Tests still require `PYTHONPATH=.`; consider adding `pytest.ini` or packaging the app for cleaner invocation.
-- Accessibility audit (contrast, keyboard focus) has not been run since the UI refresh.
-- SQLAlchemy emits `datetime.utcnow()` deprecation warnings; migrate to timezone-aware timestamps when convenient.
+- Role seeds remain Dutch; align localisation strategy (including `/init` and UI copy).
+- Tests still require `PYTHONPATH=.`; consider adding `pytest.ini` or packaging the app for CI.
+- Accessibility audit (contrast, keyboard paths, screen readers) is pending for refreshed pages.
+- SQLAlchemy warns about `datetime.utcnow()`; migrate to timezone-aware timestamps when practical.
+- Chat defaults (include summaries, model choice) currently live in code; consider exposing admin controls.
 
 ## Next Steps
-1. Decide on localisation for role labels and propagate changes to `/init`, forms, and templates.
-2. Add CI-friendly test config (e.g., `pytest.ini`) to remove the `PYTHONPATH` requirement.
-3. Capture updated screenshots / documentation for the student and lecturer dashboards.
-4. Implement LLM conversation flow using `StudentSubmissionMessage` once design is finalised.
+1. Decide on localisation (role labels, messages) and propagate changes.
+2. Add CI-friendly test config to drop the `PYTHONPATH` requirement.
+3. Enhance chat experience (persist summary toggles, show active model, optional streaming responses).
+4. Capture updated screenshots/docs for lecturer/student workflows.
+5. Build richer conversational UX (e.g., rubric-based scoring, feedback export) leveraging `StudentSubmissionMessage` history.
 
 ## Key Artifacts & Paths
 - Lecturer UI: `templates/lecturer_assignments.html`, `templates/lecturer_assignment_detail.html`
-- Student UI: `templates/student_dashboard.html`, wizard logic in `blueprints/main/routes.py`
-- Summaries & services: `services/openai_summarizer.py`
-- Data models: `models.py` (`Assignment*`, `StudentSubmission`, `StudentSubmissionMessage`)
-- API bootstrap: `app.py` (`/init` seeding)
+- Lecturer prompts & conversation seeding: `blueprints/lecturer/routes.py`, `models.AssignmentPrompt`
+- Student wizard/chat: `templates/student_dashboard.html`, `blueprints/main/routes.py`, `services/chat_llm.py`, `services/export_pdf.py`
+- Summaries: `services/openai_summarizer.py`
+- Data models: `models.py` (`Assignment*`, `AssignmentPrompt`, `StudentSubmission`, `StudentSubmissionMessage`)
+- CLI entrypoint & seeding: `app.py`, `/init`
 - Styles: `static/style.css`
-- Docs: `README.md`, `AGENTS.md`, `HANDOFF.md`, `start.md`
-- Database migrations (latest):
-  - `migrations/versions/b4a14fbb86f9_add_assignments.py`
-  - `migrations/versions/95a62308a870_add_assignment_document_summaries.py`
-  - `migrations/versions/f18334320412_add_student_submissions.py`
+- Documentation: `README.md`, `AGENTS.md`, `HANDOFF.md`, `start.md`
+- Latest migrations: `migrations/versions/c4e0a60a139e_add_assignment_prompts_and_chat_metadata.py`, `f18334320412_add_student_submissions.py`, `95a62308a870_add_assignment_document_summaries.py`, `b4a14fbb86f9_add_assignments.py`
 - Local dev DB (ignored): `instance/app.db`
 
 ## Tests & Logs
-- Command: `source venv/bin/activate && PYTHONPATH=. pytest -q`
-  - Latest run: `11 passed in 0.99s`
-- Earlier run without `PYTHONPATH` still fails (`ModuleNotFoundError: app`).
-- OpenAI interactions are mocked in tests; real usage needs network access + valid `OPENAI_API_KEY`.
+- `source venv/bin/activate && PYTHONPATH=. pytest -q`
+  - Latest run: `14 passed in 1.10s`
+- Without `PYTHONPATH`, tests still fail (`ModuleNotFoundError: app`).
+- Chat/summarisation tests use monkeypatched OpenAI calls; real usage needs network + valid `OPENAI_API_KEY`.
 
 ## Schemas & Contracts
-- `User` / `Role` / `user_roles` – authentication and authorisation, many-to-many.
-- `Assignment` – lecturer-defined scenario metadata, relationship to `AssignmentDocument` and `StudentSubmission`.
-- `AssignmentDocument` – stored PDF bytes, slot order (1..4), lecturer summary metadata for document 1.
-- `StudentSubmission` – student-uploaded PDF, summary text/model/timestamp; future conversation anchor.
-- `StudentSubmissionMessage` – conversation log placeholder (role, content, timestamps).
-- `/init` – seeds roles and admin user (uses env `INIT_TOKEN` outside debug).
+- `User` / `Role` / `user_roles` – authentication/authorisation, many-to-many.
+- `Assignment` – lecturer metadata; related to `AssignmentDocument`, `AssignmentPrompt`, `StudentSubmission`.
+- `AssignmentDocument` – stored PDFs (slots 1–4), lecturer summary & metadata (slot 1).
+- `AssignmentPrompt` – lecturer-authored guidance with optional assistant example responses.
+- `StudentSubmission` – student PDF, summary text/model/timestamp; anchor for chat history.
+- `StudentSubmissionMessage` – logs conversation turns (role, model, metadata such as summary toggles, token counts).
+- `/init` – seeds roles and admin user (guarded by `INIT_TOKEN` when not in debug).
 
 ## Environment & Tooling
-- Python: 3.13.5 virtual environment located at `venv/` (reuse; do not create `.venv`).
-- Core packages (per `pip list` in venv):
+- Python: 3.13.5 virtualenv at `venv/` (reuse; do not create `.venv`).
+- Key packages (from active venv):
   - Flask 3.1.2, Flask-Login 0.6.3, Flask-WTF 1.2.2, email-validator 2.3.0
   - Flask-Migrate 4.1.0, Flask-SQLAlchemy 3.1.1, SQLAlchemy 2.0.44
   - python-dotenv 1.1.1, passlib 1.7.4, pyodbc 5.2.0
   - pytest 8.4.2, gunicorn 23.0.0, waitress 3.0.2
-  - openai 2.4.0, pypdf 6.1.1 (install requires network access)
-- Required environment variables:
-  - `SECRET_KEY`, `SQLALCHEMY_DATABASE_URI` (default SQLite), optional `INIT_TOKEN` & `ADMIN_SEED_PASSWORD`
-  - `OPENAI_API_KEY` for lecturer/student summary generation
-- External services: OpenAI API (GPT-3.5, GPT-4o-mini, GPT-5) for summaries; ensure key is set before invoking endpoints.
+  - openai 2.4.0, pypdf 6.1.1, fpdf2 2.7.8
+- Required env vars: `SECRET_KEY`, `SQLALCHEMY_DATABASE_URI` (default SQLite), optional `INIT_TOKEN` & `ADMIN_SEED_PASSWORD`, and `OPENAI_API_KEY` for summaries/chat.
+- External service: OpenAI API (GPT-3.5, GPT-4o-mini, GPT-5 models). Ensure key is set before hitting lecturer/student endpoints.
 
 ## Additional Notes
-- Student workflow uses a session-based wizard (`stage` stored in session); ensure session storage is trusted (Flask secure cookies).
-- Binary content (PDFs) lives in database tables—monitor DB size or move to object storage if files grow large.
-- Conversational UI is stubbed (Step 4 card) but data model is ready for message history.
-- Re-run migrations (`flask db upgrade`) after deploying new code; latest migration adds student submissions + messages.
+- Student wizard relies on session state (`student_stage`, `active_assignment_id`). Flask-signed sessions suffice for dev; consider server-side storage in production.
+- Conversation history trims to last 12 messages before hitting the API to manage token cost.
+- PDF export sanitises characters unsupported by Helvetica; upgrade to a full Unicode font if future needs require broader character sets.
+- Run migrations (`flask db upgrade`) after pulling new code; latest migration adds prompts/chat metadata.

@@ -4,6 +4,7 @@ from passlib.hash import pbkdf2_sha256
 from flask_login import UserMixin
 from extensions import db
 import base64
+import json
 
 # Tabel associatie User <-> Role (many-to-many)
 user_roles = db.Table(
@@ -29,6 +30,11 @@ class User(UserMixin, db.Model):
         "UserProject",
         cascade="all, delete-orphan",
         back_populates="user",
+    )
+    submissions = db.relationship(
+        "StudentSubmission",
+        cascade="all, delete-orphan",
+        back_populates="student",
     )
     submissions = db.relationship(
         "StudentSubmission",
@@ -139,6 +145,17 @@ class Assignment(db.Model):
         cascade="all, delete-orphan",
         order_by="AssignmentDocument.slot",
     )
+    prompts = db.relationship(
+        "AssignmentPrompt",
+        back_populates="assignment",
+        cascade="all, delete-orphan",
+        order_by="AssignmentPrompt.display_order",
+    )
+    submissions = db.relationship(
+        "StudentSubmission",
+        back_populates="assignment",
+        cascade="all, delete-orphan",
+    )
     submissions = db.relationship(
         "StudentSubmission",
         back_populates="assignment",
@@ -179,6 +196,21 @@ class AssignmentDocument(db.Model):
         self.summary = text.strip() if text else None
         self.summary_model = model_name
         self.summary_updated_at = datetime.utcnow()
+
+
+class AssignmentPrompt(db.Model):
+    __tablename__ = "assignment_prompts"
+
+    id = db.Column(db.Integer, primary_key=True)
+    assignment_id = db.Column(db.Integer, db.ForeignKey("assignments.id"), nullable=False)
+    title = db.Column(db.String(120), nullable=False)
+    prompt_text = db.Column(db.Text, nullable=False)
+    example_response = db.Column(db.Text)
+    display_order = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    assignment = db.relationship("Assignment", back_populates="prompts")
 
 
 class StudentSubmission(db.Model):
@@ -222,5 +254,18 @@ class StudentSubmissionMessage(db.Model):
     role = db.Column(db.String(20), nullable=False)  # 'student' or 'assistant'
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    model = db.Column(db.String(64))
+    context = db.Column(db.Text)
 
     submission = db.relationship("StudentSubmission", back_populates="messages")
+
+    def set_context(self, **values):
+        self.context = json.dumps(values, ensure_ascii=False)
+
+    def get_context(self) -> Optional[dict]:
+        if not self.context:
+            return None
+        try:
+            return json.loads(self.context)
+        except json.JSONDecodeError:
+            return None

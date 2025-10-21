@@ -20,7 +20,7 @@ from wtforms import HiddenField, SelectField, StringField, TextAreaField
 from wtforms.validators import DataRequired, Length, Optional
 
 from extensions import db
-from models import Assignment, AssignmentDocument
+from models import Assignment, AssignmentDocument, AssignmentPrompt
 from role_required import role_required
 from services.openai_summarizer import (
     SUMMARY_MODELS,
@@ -101,6 +101,24 @@ class SummaryForm(FlaskForm):
     model = SelectField("OpenAI model", choices=[], validators=[DataRequired()])
 
 
+class AssignmentPromptForm(FlaskForm):
+    title = StringField("Title", validators=[DataRequired(), Length(max=120)])
+    prompt_text = TextAreaField(
+        "Prompt",
+        validators=[DataRequired(), Length(max=4000)],
+        render_kw={"rows": 3},
+    )
+    example_response = TextAreaField(
+        "Example assistant response (optional)",
+        validators=[Optional(), Length(max=4000)],
+        render_kw={"rows": 3},
+    )
+
+
+class DeletePromptForm(FlaskForm):
+    prompt_id = HiddenField(validators=[DataRequired()])
+
+
 def _normalise_filename(filename: str, slot: int) -> str:
     if not filename:
         return f"document_{slot}.pdf"
@@ -171,12 +189,17 @@ def assignment_detail(assignment_id: int):
     if not summary_form.model.data:
         summary_form.model.data = SUMMARY_MODELS[0][0]
 
+    prompt_form = AssignmentPromptForm()
+    prompt_delete_form = DeletePromptForm()
+
     primary_doc = next((doc for doc in assignment.documents if doc.slot == 1), None)
     return render_template(
         "lecturer_assignment_detail.html",
         assignment=assignment,
         delete_form=delete_form,
         summary_form=summary_form,
+        prompt_form=prompt_form,
+        prompt_delete_form=prompt_delete_form,
         primary_doc=primary_doc,
     )
 
@@ -310,4 +333,53 @@ def assignment_summary(assignment_id: int):
         db.session.rollback()
         flash(str(exc), "danger")
 
+    return redirect(url_for("lecturer.assignment_detail", assignment_id=assignment_id))
+
+
+@bp.route("/assignments/<int:assignment_id>/prompts", methods=["POST"])
+@login_required
+@role_required("Beheerder")
+def add_prompt(assignment_id: int):
+    assignment = db.session.get(Assignment, assignment_id)
+    if not assignment:
+        abort(404)
+
+    form = AssignmentPromptForm()
+    if form.validate_on_submit():
+        next_order = (assignment.prompts[-1].display_order + 1) if assignment.prompts else 1
+        prompt = AssignmentPrompt(
+            assignment=assignment,
+            title=form.title.data.strip(),
+            prompt_text=form.prompt_text.data.strip(),
+            example_response=(form.example_response.data or "").strip() or None,
+            display_order=next_order,
+        )
+        db.session.add(prompt)
+        db.session.commit()
+        flash("Prompt added.", "success")
+    else:
+        first_error = next(iter(form.errors.values()), ["Invalid input"])[0]
+        flash(first_error, "danger")
+
+    return redirect(url_for("lecturer.assignment_detail", assignment_id=assignment_id))
+
+
+@bp.route("/prompts/<int:prompt_id>/delete", methods=["POST"])
+@login_required
+@role_required("Beheerder")
+def delete_prompt(prompt_id: int):
+    prompt = db.session.get(AssignmentPrompt, prompt_id)
+    if not prompt:
+        flash("Prompt not found.", "warning")
+        return redirect(url_for("lecturer.assignments"))
+
+    form = DeletePromptForm()
+    if not form.validate_on_submit() or int(form.prompt_id.data) != prompt_id:
+        flash("Invalid delete request.", "danger")
+        return redirect(url_for("lecturer.assignment_detail", assignment_id=prompt.assignment_id))
+
+    assignment_id = prompt.assignment_id
+    db.session.delete(prompt)
+    db.session.commit()
+    flash("Prompt removed.", "success")
     return redirect(url_for("lecturer.assignment_detail", assignment_id=assignment_id))

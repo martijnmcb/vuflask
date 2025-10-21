@@ -1,5 +1,14 @@
 from io import BytesIO
 
+from extensions import db
+from models import (
+    Assignment,
+    AssignmentDocument,
+    AssignmentPrompt,
+    StudentSubmission,
+    StudentSubmissionMessage,
+)
+
 
 def _create_assignment(auth_client, app, title="Mobility Forecast Challenge"):
     payload = {
@@ -218,9 +227,6 @@ def test_student_upload_case_analysis(monkeypatch, auth_client, app):
     )
     assert response.status_code == 200
 
-    from extensions import db
-    from models import StudentSubmission
-
     with app.app_context():
         submission = (
             db.session.query(StudentSubmission)
@@ -229,3 +235,178 @@ def test_student_upload_case_analysis(monkeypatch, auth_client, app):
         )
         assert submission.summary == "Student summary via gpt-3.5-turbo"
         assert submission.summary_model == "gpt-3.5-turbo"
+
+
+def test_lecturer_can_manage_prompts(auth_client, app):
+    assignment_id = _create_assignment(auth_client, app, title="Prompted Assignment")
+
+    resp = auth_client.post(
+        f"/lecturer/assignments/{assignment_id}/prompts",
+        data={
+            "title": "Ethics reminder",
+            "prompt_text": "Ask the student to reflect on fairness and bias.",
+            "example_response": "Consider the impact on vulnerable travellers.",
+        },
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+
+    with app.app_context():
+        prompt = db.session.query(AssignmentPrompt).filter_by(assignment_id=assignment_id).one()
+        prompt_id = prompt.id
+
+    resp = auth_client.post(
+        f"/lecturer/prompts/{prompt_id}/delete",
+        data={"prompt_id": str(prompt_id)},
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    with app.app_context():
+        assert db.session.query(AssignmentPrompt).filter_by(assignment_id=assignment_id).count() == 0
+
+
+def test_student_chat_conversation(monkeypatch, auth_client, app):
+    assignment_id = _create_assignment(auth_client, app, title="Chat Flow")
+
+    auth_client.post(
+        "/student?step=1",
+        data={"select-assignment_id": str(assignment_id)},
+        follow_redirects=True,
+    )
+
+    class DummySummary:
+        def __init__(self, text, model):
+            self.text = text
+            self.model = model
+
+    monkeypatch.setattr(
+        "blueprints.main.routes.summarise_document_content",
+        lambda content, model: DummySummary(f"Summary via {model}", model),
+    )
+
+    auth_client.post(
+        "/student?step=2",
+        data={
+            "upload-assignment_id": str(assignment_id),
+            "upload-model": "gpt-3.5-turbo",
+            "upload-document": (BytesIO(b"student pdf"), "analysis.pdf"),
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+
+    with app.app_context():
+        submission = (
+            db.session.query(StudentSubmission)
+            .filter_by(assignment_id=assignment_id)
+            .one()
+        )
+
+    from services import chat_llm
+
+    fake_result = chat_llm.ChatResult(
+        text="AI assistant reply.",
+        model="gpt-4o-mini",
+        prompt_tokens=42,
+        completion_tokens=21,
+        total_tokens=63,
+    )
+
+    monkeypatch.setattr(
+        chat_llm,
+        "generate_chat_response",
+        lambda **kwargs: fake_result,
+    )
+
+    response = auth_client.post(
+        "/student?step=4",
+        data={
+            "chat-submission_id": str(submission.id),
+            "chat-model": "gpt-4o-mini",
+            "chat-message": "How can we improve accessibility?",
+            "chat-include_lecturer_summary": "y",
+            "chat-include_student_summary": "y",
+        },
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"AI assistant reply" in response.data
+
+    with app.app_context():
+        messages = (
+            db.session.query(StudentSubmissionMessage)
+            .filter_by(submission_id=submission.id)
+            .order_by(StudentSubmissionMessage.created_at.asc())
+            .all()
+        )
+        assert len(messages) == 2
+        assert messages[0].role == "student"
+        assert messages[0].content == "How can we improve accessibility?"
+        ctx_student = messages[0].get_context()
+        assert ctx_student["include_student_summary"] is True
+        assert messages[1].role == "assistant"
+        assert messages[1].content == "AI assistant reply."
+        ctx_assistant = messages[1].get_context()
+        assert ctx_assistant["total_tokens"] == 63
+
+
+def test_student_download_conversation(monkeypatch, auth_client, app):
+    assignment_id = _create_assignment(auth_client, app, title="Download Flow")
+
+    auth_client.post(
+        "/student?step=1",
+        data={"select-assignment_id": str(assignment_id)},
+        follow_redirects=True,
+    )
+
+    class DummySummary:
+        def __init__(self, text, model):
+            self.text = text
+            self.model = model
+
+    monkeypatch.setattr(
+        "blueprints.main.routes.summarise_document_content",
+        lambda content, model: DummySummary(f"Summary via {model}", model),
+    )
+
+    auth_client.post(
+        "/student?step=2",
+        data={
+            "upload-assignment_id": str(assignment_id),
+            "upload-model": "gpt-3.5-turbo",
+            "upload-document": (BytesIO(b"student pdf"), "analysis.pdf"),
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+
+    with app.app_context():
+        submission = (
+            db.session.query(StudentSubmission)
+            .filter_by(assignment_id=assignment_id)
+            .one()
+        )
+
+    from services import chat_llm
+
+    monkeypatch.setattr(
+        chat_llm,
+        "generate_chat_response",
+        lambda **kwargs: chat_llm.ChatResult(text="AI assistant reply.", model="gpt-4o-mini"),
+    )
+
+    auth_client.post(
+        "/student?step=4",
+        data={
+            "chat-submission_id": str(submission.id),
+            "chat-message": "Summarise key risks",
+            "chat-include_lecturer_summary": "y",
+            "chat-include_student_summary": "y",
+        },
+        follow_redirects=True,
+    )
+
+    resp = auth_client.get(f"/student/conversation/download?submission_id={submission.id}")
+    assert resp.status_code == 200
+    assert resp.headers["Content-Type"].startswith("application/pdf")
+    assert resp.data.startswith(b"%PDF")

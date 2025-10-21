@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-{% set progress = 33 if stage == 1 else (66 if stage == 2 else 100) %}
+{% set progress = 25 if stage == 1 else (50 if stage == 2 else (75 if stage == 3 else 100)) %}
 <div class="mb-4">
   <ol class="breadcrumb mb-3">
     <li class="breadcrumb-item {{ 'active' if stage >= 1 else '' }}">1. Choose assignment</li>
     <li class="breadcrumb-item {{ 'active' if stage >= 2 else '' }}">2. Upload analysis</li>
-    <li class="breadcrumb-item {{ 'active' if stage >= 3 else '' }}">3. Review &amp; chat</li>
+    <li class="breadcrumb-item {{ 'active' if stage >= 3 else '' }}">3. Review summaries</li>
+    <li class="breadcrumb-item {{ 'active' if stage >= 4 else '' }}">4. Converse with AI</li>
   </ol>
   <div class="progress" style="height: 6px;">
     <div class="progress-bar" role="progressbar" style="width: {{ progress }}%" aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100"></div>
@@ -60,7 +61,6 @@
               <div class="mb-3">
                 {{ upload_form.document.label(class="form-label") }}
                 {{ upload_form.document(class="form-control") }}
-                <div class="form-text">Upload a PDF version of your analysis.</div>
                 {% for error in upload_form.document.errors %}
                   <div class="invalid-feedback d-block">{{ error }}</div>
                 {% endfor %}
@@ -84,17 +84,17 @@
       </div>
     </div>
   </div>
-{% else %}
+{% elif stage == 3 %}
   <div class="row g-4">
     <div class="col-lg-6">
-      <div class="card shadow-sm" style="max-height:45vh; overflow:auto;">
+      <div class="card shadow-sm student-summary-card" style="max-height:45vh; overflow:auto;">
         <div class="card-header d-flex justify-content-between align-items-center">
           <h2 class="h6 mb-0">Lecturer summary</h2>
           <a href="{{ url_for('main.student', step=2) }}" class="btn btn-link btn-sm">&laquo; Back</a>
         </div>
         <div class="card-body">
           {% if assignment_summary_doc and assignment_summary_doc.summary %}
-            <p>{{ assignment_summary_doc.summary }}</p>
+            <div class="markdown-output">{{ format_summary(assignment_summary_doc.summary) }}</div>
             {% if assignment_summary_doc.summary_model %}
               <p class="text-muted small mb-0">Model: {{ assignment_summary_doc.summary_model }} · Updated {{ assignment_summary_doc.summary_updated_at.strftime('%d %b %Y %H:%M') if assignment_summary_doc.summary_updated_at else 'n/a' }}</p>
             {% endif %}
@@ -105,21 +105,21 @@
       </div>
     </div>
     <div class="col-lg-6">
-      <div class="card shadow-sm" style="max-height:45vh; overflow:auto;">
+      <div class="card shadow-sm student-summary-card" style="max-height:45vh; overflow:auto;">
         <div class="card-header">
           <h2 class="h6 mb-0">Your latest summary</h2>
         </div>
         <div class="card-body">
-          {% if student_submissions %}
-            {% set latest = student_submissions[0] %}
-            <p><strong>{{ latest.filename }}</strong></p>
+            {% if student_submissions %}
+              {% set latest = student_submissions[0] %}
+              <p><strong>{{ latest.filename }}</strong></p>
             {% if latest.summary %}
-              <p>{{ latest.summary }}</p>
-              <p class="text-muted small mb-0">Model: {{ latest.summary_model or 'n/a' }} · Uploaded {{ latest.uploaded_at.strftime('%d %b %Y %H:%M') }}</p>
+              <div class="markdown-output">{{ format_summary(latest.summary) }}</div>
+                <p class="text-muted small mb-0">Model: {{ latest.summary_model or 'n/a' }} · Uploaded {{ latest.uploaded_at.strftime('%d %b %Y %H:%M') }}</p>
+              {% else %}
+                <p class="text-muted mb-0">Summary not available for this upload.</p>
+              {% endif %}
             {% else %}
-              <p class="text-muted mb-0">Summary not available for this upload.</p>
-            {% endif %}
-          {% else %}
             <p class="text-muted mb-0">Upload your case analysis to generate a personal summary.</p>
           {% endif %}
         </div>
@@ -148,12 +148,151 @@
   </div>
   {% endif %}
 
-  <div class="card shadow-sm mt-4" style="min-height:35vh;">
-    <div class="card-header">
-      <h2 class="h6 mb-0">Step 4 · Interactive dialogue (coming soon)</h2>
+  <div class="d-flex justify-content-end mt-4">
+    <a href="{{ url_for('main.student', step=4) }}" class="btn btn-primary">Continue to Step 4</a>
+  </div>
+{% else %}
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card shadow-sm student-summary-card" style="max-height:45vh; overflow:auto;">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h2 class="h6 mb-0">Lecturer summary</h2>
+          <a href="{{ url_for('main.student', step=3) }}" class="btn btn-link btn-sm">&laquo; Back</a>
+        </div>
+        <div class="card-body">
+          {% if assignment_summary_doc and assignment_summary_doc.summary %}
+            <p>{{ assignment_summary_doc.summary }}</p>
+            {% if assignment_summary_doc.summary_model %}
+              <p class="text-muted small mb-0">Model: {{ assignment_summary_doc.summary_model }} · Updated {{ assignment_summary_doc.summary_updated_at.strftime('%d %b %Y %H:%M') if assignment_summary_doc.summary_updated_at else 'n/a' }}</p>
+            {% endif %}
+          {% else %}
+            <p class="text-muted mb-0">The lecturer has not published a summary for this assignment yet.</p>
+          {% endif %}
+        </div>
+      </div>
     </div>
-    <div class="card-body text-muted">
-      <p class="mb-0">This area will host the interactive conversation with the AI assistant. Each message will be stored alongside the summaries so future prompts can reference the full dialogue.</p>
+    <div class="col-lg-6">
+      <div class="card shadow-sm student-summary-card" style="max-height:45vh; overflow:auto;">
+        <div class="card-header">
+          <h2 class="h6 mb-0">Your latest summary</h2>
+        </div>
+        <div class="card-body">
+          {% if student_submissions %}
+            {% set latest = student_submissions[0] %}
+            <p><strong>{{ latest.filename }}</strong></p>
+            {% if latest.summary %}
+              <p>{{ latest.summary }}</p>
+              <p class="text-muted small mb-0">Model: {{ latest.summary_model or 'n/a' }} · Uploaded {{ latest.uploaded_at.strftime('%d %b %Y %H:%M') }}</p>
+            {% else %}
+              <p class="text-muted mb-0">Summary not available for this upload.</p>
+            {% endif %}
+          {% else %}
+            <p class="text-muted mb-0">Upload your case analysis to generate a personal summary.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mt-1">
+    <div class="col-lg-8">
+      <div class="card shadow-sm" style="min-height:45vh;">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h2 class="h6 mb-0">Step 4 · Conversation</h2>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge text-bg-secondary">LLM assistant</span>
+            {% if active_submission %}
+            <form method="post" action="{{ url_for('main.restart_conversation') }}" class="d-inline">
+              {{ chat_form.csrf_token }}
+              <input type="hidden" name="chat-submission_id" value="{{ active_submission.id }}">
+              <button type="submit" class="btn btn-outline-secondary btn-sm">Restart conversation</button>
+            </form>
+            <a class="btn btn-outline-primary btn-sm" href="{{ url_for('main.download_conversation', submission_id=active_submission.id) }}">
+              <i class="bi bi-download"></i> Download PDF
+            </a>
+            {% endif %}
+          </div>
+        </div>
+        <div class="card-body d-flex flex-column" style="min-height:45vh;">
+          <div class="flex-grow-1 overflow-auto mb-3" style="max-height:40vh;">
+            {% if conversation_messages %}
+              <div class="list-group list-group-flush">
+                {% for message in conversation_messages %}
+                <div class="list-group-item">
+                  <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                      <span class="badge {{ 'text-bg-primary' if message.role == 'assistant' else 'text-bg-dark' }}">
+                        {{ 'DiaLoque' if message.role == 'assistant' else 'You' }}
+                      </span>
+                      <div class="mt-2 mb-1 markdown-output">{{ message.content | replace('\n', '<br>') | safe }}</div>
+                    </div>
+                    {% set ctx = message.get_context() %}
+                    <div class="text-muted small text-end">
+                      {{ message.created_at.strftime('%d %b %Y %H:%M') }}<br>
+                      {% if message.model %}Model: {{ message.model }}{% endif %}
+                      {% if ctx and ctx.get('total_tokens') %}<br>{{ ctx['total_tokens'] }} tokens{% endif %}
+                    </div>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="text-muted mb-0">No conversation yet. Ask your first question below.</p>
+            {% endif %}
+          </div>
+          <form method="post" action="{{ url_for('main.student', step=4) }}" novalidate class="mt-2">
+            {{ chat_form.hidden_tag() }}
+            {{ chat_form.submission_id() }}
+          <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+              <div class="form-check">
+                {{ chat_form.include_lecturer_summary(class="form-check-input", id="includeLecturerSummary") }}
+                <label class="form-check-label" for="includeLecturerSummary">Lecturer summary</label>
+              </div>
+              <div class="form-check">
+                {{ chat_form.include_student_summary(class="form-check-input", id="includeStudentSummary") }}
+                <label class="form-check-label" for="includeStudentSummary">My summary</label>
+              </div>
+            </div>
+            <div class="col-md-8">
+              {{ chat_form.message.label(class="form-label", text="Student response") }}
+              {{ chat_form.message(class="form-control") }}
+              {% for error in chat_form.message.errors %}
+                <div class="invalid-feedback d-block">{{ error }}</div>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="d-flex justify-content-end gap-2 mt-3">
+            <button type="submit" class="btn btn-primary">Send</button>
+          </div>
+        </form>
+      </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card shadow-sm student-prompts-card" style="max-height:45vh; overflow:auto;">
+        <div class="card-header">
+          <h2 class="h6 mb-0">Lecturer prompts</h2>
+        </div>
+        <div class="card-body">
+          {% if assignment_prompts %}
+            <ul class="list-unstyled mb-0">
+              {% for prompt in assignment_prompts %}
+              <li class="mb-3">
+                <strong>{{ prompt.title }}</strong>
+                <p class="mb-1">{{ prompt.prompt_text }}</p>
+                {% if prompt.example_response %}
+                  <p class="text-muted small mb-0">Example response: {{ prompt.example_response }}</p>
+                {% endif %}
+              </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-muted mb-0">No lecturer prompts have been added for this assignment yet.</p>
+          {% endif %}
+        </div>
+      </div>
+
     </div>
   </div>
 {% endif %}
