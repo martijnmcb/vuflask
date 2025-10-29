@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Sequence
+from datetime import datetime, timezone
+from typing import Iterable, List, Optional, Sequence, Tuple
 
 try:  # newer SDK (>=1.0)
     from openai import OpenAI  # type: ignore
@@ -41,12 +42,20 @@ def _get_api_key() -> str:
     return api_key
 
 
+def _normalize_timestamp(value: Optional[datetime]) -> datetime:
+    if value is None:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 def _build_context_messages(
     submission,
     user_message: str,
     include_lecturer_summary: bool,
     include_student_summary: bool,
-    max_history: int = 12,
+    max_history: Optional[int] = None,
 ) -> List[dict]:
     """Construct the chat payload with system context, prompts, and history."""
     messages: List[dict] = []
@@ -76,28 +85,38 @@ def _build_context_messages(
             }
         )
 
-    # Lecturer-provided prompts
-    for prompt in assignment.prompts:
-        prompt_content = prompt.prompt_text.strip()
-        if prompt.title:
-            prompt_content = f"Lecturer guidance ({prompt.title}):\n{prompt_content}"
-        messages.append({"role": "system", "content": prompt_content})
-        if prompt.example_response:
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": prompt.example_response.strip(),
-                }
-            )
-
     # Conversation history
-    history_source = sorted(submission.messages, key=lambda m: m.created_at)
-    if len(history_source) > max_history:
+    history_source = sorted(
+        submission.messages,
+        key=lambda m: (_normalize_timestamp(m.created_at), m.id or 0),
+    )
+    if max_history is not None and len(history_source) > max_history:
         history_source = history_source[-max_history:]
     history: Iterable = history_source
     for msg in history:
-        role = "user" if msg.role == "student" else "assistant"
-        messages.append({"role": role, "content": msg.content})
+        if msg.role == "student":
+            role = "user"
+            content = msg.content
+            messages.append({"role": role, "content": content})
+        elif msg.role == "assistant":
+            messages.append({"role": "assistant", "content": msg.content})
+        elif msg.role == "lecturer":
+            context = msg.get_context() or {}
+            title = context.get("prompt_title")
+            example = context.get("example_response")
+            prompt_content = msg.content.strip()
+            if title:
+                header = f"Lecturer prompt ({title}):\n{prompt_content}"
+            else:
+                header = f"Lecturer prompt:\n{prompt_content}"
+            if example:
+                header = (
+                    f"{header}\n\nExample assistant reply previously shared by the lecturer:\n"
+                    f"{example.strip()}"
+                )
+            messages.append({"role": "system", "content": header})
+        else:
+            continue
 
     messages.append({"role": "user", "content": user_message.strip()})
     return messages

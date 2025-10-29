@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
 
 from flask import (
@@ -16,8 +16,8 @@ from flask import (
 from flask_login import login_required
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileRequired, FileField
-from wtforms import HiddenField, SelectField, StringField, TextAreaField
-from wtforms.validators import DataRequired, Length, Optional
+from wtforms import HiddenField, IntegerField, SelectField, StringField, TextAreaField
+from wtforms.validators import DataRequired, Length, NumberRange, Optional
 
 from extensions import db
 from models import Assignment, AssignmentDocument, AssignmentPrompt
@@ -108,6 +108,11 @@ class AssignmentPromptForm(FlaskForm):
         validators=[DataRequired(), Length(max=4000)],
         render_kw={"rows": 3},
     )
+    display_order = IntegerField(
+        "Display order",
+        validators=[Optional(), NumberRange(min=1, max=999)],
+        render_kw={"min": 1, "step": 1},
+    )
     example_response = TextAreaField(
         "Example assistant response (optional)",
         validators=[Optional(), Length(max=4000)],
@@ -117,6 +122,15 @@ class AssignmentPromptForm(FlaskForm):
 
 class DeletePromptForm(FlaskForm):
     prompt_id = HiddenField(validators=[DataRequired()])
+
+
+class PromptOrderForm(FlaskForm):
+    prompt_id = HiddenField(validators=[DataRequired()])
+    display_order = IntegerField(
+        "Display order",
+        validators=[DataRequired(), NumberRange(min=1, max=999)],
+        render_kw={"min": 1, "step": 1},
+    )
 
 
 def _normalise_filename(filename: str, slot: int) -> str:
@@ -191,6 +205,17 @@ def assignment_detail(assignment_id: int):
 
     prompt_form = AssignmentPromptForm()
     prompt_delete_form = DeletePromptForm()
+    if not prompt_form.is_submitted():
+        existing_orders = [prompt.display_order for prompt in assignment.prompts]
+        next_order = (max(existing_orders) + 1) if existing_orders else 1
+        prompt_form.display_order.data = next_order
+
+    prompt_order_forms: dict[int, PromptOrderForm] = {}
+    for prompt in assignment.prompts:
+        order_form = PromptOrderForm()
+        order_form.prompt_id.data = str(prompt.id)
+        order_form.display_order.data = prompt.display_order
+        prompt_order_forms[prompt.id] = order_form
 
     primary_doc = next((doc for doc in assignment.documents if doc.slot == 1), None)
     return render_template(
@@ -200,6 +225,7 @@ def assignment_detail(assignment_id: int):
         summary_form=summary_form,
         prompt_form=prompt_form,
         prompt_delete_form=prompt_delete_form,
+        prompt_order_forms=prompt_order_forms,
         primary_doc=primary_doc,
     )
 
@@ -243,7 +269,7 @@ def assignment_edit(assignment_id: int):
                 document.mimetype = file_storage.mimetype or "application/pdf"
                 document.file_size = len(file_bytes)
                 document.content = file_bytes
-                document.uploaded_at = datetime.utcnow()
+                document.uploaded_at = datetime.now(timezone.utc)
 
         db.session.commit()
         flash("Assignment updated successfully.", "success")
@@ -346,15 +372,26 @@ def add_prompt(assignment_id: int):
 
     form = AssignmentPromptForm()
     if form.validate_on_submit():
-        next_order = (assignment.prompts[-1].display_order + 1) if assignment.prompts else 1
+        existing_prompts = list(assignment.prompts)
+        max_existing_order = max((prompt.display_order for prompt in existing_prompts), default=0)
+        desired_order = form.display_order.data or (max_existing_order + 1)
+        desired_order = max(1, desired_order)
+        upper_bound = len(existing_prompts) + 1
+        if desired_order > upper_bound:
+            desired_order = upper_bound
+
         prompt = AssignmentPrompt(
             assignment=assignment,
             title=form.title.data.strip(),
             prompt_text=form.prompt_text.data.strip(),
             example_response=(form.example_response.data or "").strip() or None,
-            display_order=next_order,
         )
         db.session.add(prompt)
+
+        existing_prompts.insert(desired_order - 1, prompt)
+        for index, prompt_obj in enumerate(existing_prompts, start=1):
+            prompt_obj.display_order = index
+
         db.session.commit()
         flash("Prompt added.", "success")
     else:
@@ -362,6 +399,34 @@ def add_prompt(assignment_id: int):
         flash(first_error, "danger")
 
     return redirect(url_for("lecturer.assignment_detail", assignment_id=assignment_id))
+
+
+@bp.route("/prompts/<int:prompt_id>/order", methods=["POST"])
+@login_required
+@role_required("Beheerder")
+def update_prompt_order(prompt_id: int):
+    prompt = db.session.get(AssignmentPrompt, prompt_id)
+    if not prompt:
+        flash("Prompt not found.", "warning")
+        return redirect(url_for("lecturer.assignments"))
+
+    form = PromptOrderForm()
+    if not form.validate_on_submit() or int(form.prompt_id.data) != prompt_id:
+        flash("Invalid update request.", "danger")
+        return redirect(url_for("lecturer.assignment_detail", assignment_id=prompt.assignment_id))
+
+    assignment = prompt.assignment
+    desired_order = max(1, form.display_order.data)
+    prompts = [p for p in assignment.prompts if p.id != prompt.id]
+    insertion_index = min(desired_order, len(prompts) + 1) - 1
+    prompts.insert(insertion_index, prompt)
+
+    for index, prompt_obj in enumerate(prompts, start=1):
+        prompt_obj.display_order = index
+
+    db.session.commit()
+    flash("Prompt order updated.", "success")
+    return redirect(url_for("lecturer.assignment_detail", assignment_id=assignment.id))
 
 
 @bp.route("/prompts/<int:prompt_id>/delete", methods=["POST"])
@@ -378,8 +443,15 @@ def delete_prompt(prompt_id: int):
         flash("Invalid delete request.", "danger")
         return redirect(url_for("lecturer.assignment_detail", assignment_id=prompt.assignment_id))
 
-    assignment_id = prompt.assignment_id
+    assignment = prompt.assignment
+    assignment_id = assignment.id
     db.session.delete(prompt)
+
+    remaining_prompts = [p for p in assignment.prompts if p is not prompt]
+    remaining_prompts.sort(key=lambda p: (p.display_order, p.id))
+    for index, prompt_obj in enumerate(remaining_prompts, start=1):
+        prompt_obj.display_order = index
+
     db.session.commit()
     flash("Prompt removed.", "success")
     return redirect(url_for("lecturer.assignment_detail", assignment_id=assignment_id))

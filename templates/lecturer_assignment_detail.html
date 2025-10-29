@@ -95,14 +95,21 @@
     <form method="post" action="{{ url_for('lecturer.add_prompt', assignment_id=assignment.id) }}" novalidate class="mb-4">
       {{ prompt_form.hidden_tag() }}
       <div class="row g-3">
-        <div class="col-md-4">
+        <div class="col-md-5 col-lg-4">
           {{ prompt_form.title.label(class="form-label") }}
           {{ prompt_form.title(class="form-control", placeholder="e.g. Reflection focus") }}
           {% for error in prompt_form.title.errors %}
             <div class="invalid-feedback d-block">{{ error }}</div>
           {% endfor %}
         </div>
-        <div class="col-md-8">
+        <div class="col-md-3 col-lg-2">
+          {{ prompt_form.display_order.label(class="form-label") }}
+          {{ prompt_form.display_order(class="form-control form-control-sm", placeholder="1") }}
+          {% for error in prompt_form.display_order.errors %}
+            <div class="invalid-feedback d-block">{{ error }}</div>
+          {% endfor %}
+        </div>
+        <div class="col-12">
           {{ prompt_form.prompt_text.label(class="form-label") }}
           {{ prompt_form.prompt_text(class="form-control", placeholder="Guidance or questions to include in the AI context.") }}
           {% for error in prompt_form.prompt_text.errors %}
@@ -125,20 +132,33 @@
     {% if assignment.prompts %}
       <div class="list-group list-group-flush">
         {% for prompt in assignment.prompts %}
+        {% set order_form = prompt_order_forms.get(prompt.id) %}
         <div class="list-group-item">
           <div class="d-flex justify-content-between align-items-start gap-3">
-            <div>
-              <h3 class="h6 mb-1">{{ prompt.title }}</h3>
+            <div class="flex-grow-1">
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge text-bg-light">#{{ prompt.display_order }}</span>
+                <h3 class="h6 mb-0">{{ prompt.title }}</h3>
+              </div>
               <p class="mb-1">{{ prompt.prompt_text }}</p>
               {% if prompt.example_response %}
                 <p class="text-muted small mb-0">Example response: {{ prompt.example_response }}</p>
               {% endif %}
             </div>
-            <form method="post" action="{{ url_for('lecturer.delete_prompt', prompt_id=prompt.id) }}" onsubmit="return confirm('Remove this prompt?');">
-              {{ prompt_delete_form.csrf_token }}
-              {{ prompt_delete_form.prompt_id(value=prompt.id) }}
-              <button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>
-            </form>
+            <div class="d-flex flex-column align-items-end gap-2">
+              {% if order_form %}
+              <form method="post" action="{{ url_for('lecturer.update_prompt_order', prompt_id=prompt.id) }}" class="d-flex align-items-center gap-2">
+                {{ order_form.hidden_tag() }}
+                {{ order_form.display_order(class="form-control form-control-sm", style="width:5rem;", value=prompt.display_order) }}
+                <button type="submit" class="btn btn-outline-secondary btn-sm">Update order</button>
+              </form>
+              {% endif %}
+              <form method="post" action="{{ url_for('lecturer.delete_prompt', prompt_id=prompt.id) }}" onsubmit="return confirm('Remove this prompt?');">
+                {{ prompt_delete_form.csrf_token }}
+                {{ prompt_delete_form.prompt_id(value=prompt.id) }}
+                <button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>
+              </form>
+            </div>
           </div>
         </div>
         {% endfor %}

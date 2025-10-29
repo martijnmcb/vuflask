@@ -246,27 +246,91 @@ def test_lecturer_can_manage_prompts(auth_client, app):
             "title": "Ethics reminder",
             "prompt_text": "Ask the student to reflect on fairness and bias.",
             "example_response": "Consider the impact on vulnerable travellers.",
+            "display_order": "1",
+        },
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+
+    resp = auth_client.post(
+        f"/lecturer/assignments/{assignment_id}/prompts",
+        data={
+            "title": "Structure guidance",
+            "prompt_text": "Suggest a structure with introduction, analysis, and conclusion.",
+            "display_order": "1",
         },
         follow_redirects=True,
     )
     assert resp.status_code == 200
 
     with app.app_context():
-        prompt = db.session.query(AssignmentPrompt).filter_by(assignment_id=assignment_id).one()
-        prompt_id = prompt.id
+        prompts = (
+            db.session.query(AssignmentPrompt)
+            .filter_by(assignment_id=assignment_id)
+            .order_by(AssignmentPrompt.display_order.asc())
+            .all()
+        )
+        assert [p.title for p in prompts] == ["Structure guidance", "Ethics reminder"]
+        assert [p.display_order for p in prompts] == [1, 2]
+        prompt_ids = {p.title: p.id for p in prompts}
+
+    ethics_id = prompt_ids["Ethics reminder"]
+    resp = auth_client.post(
+        f"/lecturer/prompts/{ethics_id}/order",
+        data={"prompt_id": str(ethics_id), "display_order": "1"},
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+
+    with app.app_context():
+        prompts = (
+            db.session.query(AssignmentPrompt)
+            .filter_by(assignment_id=assignment_id)
+            .order_by(AssignmentPrompt.display_order.asc())
+            .all()
+        )
+        assert [p.title for p in prompts] == ["Ethics reminder", "Structure guidance"]
+        assert [p.display_order for p in prompts] == [1, 2]
+        structure_id = prompt_ids["Structure guidance"]
 
     resp = auth_client.post(
-        f"/lecturer/prompts/{prompt_id}/delete",
-        data={"prompt_id": str(prompt_id)},
+        f"/lecturer/prompts/{structure_id}/delete",
+        data={"prompt_id": str(structure_id)},
         follow_redirects=True,
     )
     assert resp.status_code == 200
     with app.app_context():
-        assert db.session.query(AssignmentPrompt).filter_by(assignment_id=assignment_id).count() == 0
+        remaining = (
+            db.session.query(AssignmentPrompt)
+            .filter_by(assignment_id=assignment_id)
+            .order_by(AssignmentPrompt.display_order.asc())
+            .all()
+        )
+        assert len(remaining) == 1
+        assert remaining[0].title == "Ethics reminder"
+        assert remaining[0].display_order == 1
 
 
 def test_student_chat_conversation(monkeypatch, auth_client, app):
     assignment_id = _create_assignment(auth_client, app, title="Chat Flow")
+
+    with app.app_context():
+        assignment = db.session.get(Assignment, assignment_id)
+        prompt_one = AssignmentPrompt(
+            assignment=assignment,
+            title="Reflection",
+            prompt_text="Describe the main accessibility risk you identified.",
+            display_order=1,
+        )
+        prompt_two = AssignmentPrompt(
+            assignment=assignment,
+            title="Mitigation",
+            prompt_text="Suggest one concrete mitigation for the identified risk.",
+            display_order=2,
+        )
+        db.session.add_all([prompt_one, prompt_two])
+        db.session.commit()
+        prompt_ids = {"first": prompt_one.id, "second": prompt_two.id}
 
     auth_client.post(
         "/student?step=1",
@@ -293,7 +357,7 @@ def test_student_chat_conversation(monkeypatch, auth_client, app):
         },
         content_type="multipart/form-data",
         follow_redirects=True,
-    )
+        )
 
     with app.app_context():
         submission = (
@@ -301,6 +365,10 @@ def test_student_chat_conversation(monkeypatch, auth_client, app):
             .filter_by(assignment_id=assignment_id)
             .one()
         )
+
+    # Load the conversation page to surface the initial lecturer prompt
+    stage_four = auth_client.get("/student?step=4", follow_redirects=True)
+    assert stage_four.status_code == 200
 
     from services import chat_llm
 
@@ -339,15 +407,24 @@ def test_student_chat_conversation(monkeypatch, auth_client, app):
             .order_by(StudentSubmissionMessage.created_at.asc())
             .all()
         )
-        assert len(messages) == 2
-        assert messages[0].role == "student"
-        assert messages[0].content == "How can we improve accessibility?"
-        ctx_student = messages[0].get_context()
+        assert len(messages) == 4
+        assert messages[0].role == "lecturer"
+        first_prompt_ctx = messages[0].get_context()
+        assert first_prompt_ctx["prompt_id"] == prompt_ids["first"]
+        assert "accessibility risk" in messages[0].content
+
+        assert messages[1].role == "student"
+        assert messages[1].content == "How can we improve accessibility?"
+        ctx_student = messages[1].get_context()
         assert ctx_student["include_student_summary"] is True
-        assert messages[1].role == "assistant"
-        assert messages[1].content == "AI assistant reply."
-        ctx_assistant = messages[1].get_context()
+        assert messages[2].role == "assistant"
+        assert messages[2].content == "AI assistant reply."
+        ctx_assistant = messages[2].get_context()
         assert ctx_assistant["total_tokens"] == 63
+        assert messages[3].role == "lecturer"
+        second_prompt_ctx = messages[3].get_context()
+        assert second_prompt_ctx["prompt_id"] == prompt_ids["second"]
+        assert "mitigation" in messages[3].content.lower()
 
 
 def test_student_download_conversation(monkeypatch, auth_client, app):
@@ -395,6 +472,18 @@ def test_student_download_conversation(monkeypatch, auth_client, app):
         lambda **kwargs: chat_llm.ChatResult(text="AI assistant reply.", model="gpt-4o-mini"),
     )
 
+    with app.app_context():
+        assignment = db.session.get(Assignment, assignment_id)
+        prompt = AssignmentPrompt(
+            assignment=assignment,
+            title="Key risks",
+            prompt_text="List the top three risks you see in this project.",
+            display_order=1,
+        )
+        db.session.add(prompt)
+        db.session.commit()
+
+    auth_client.get("/student?step=4", follow_redirects=True)
     auth_client.post(
         "/student?step=4",
         data={

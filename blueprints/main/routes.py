@@ -1,3 +1,5 @@
+from typing import Optional
+
 from flask import (
     Blueprint,
     render_template,
@@ -77,6 +79,49 @@ class ConversationForm(FlaskForm):
     include_lecturer_summary = BooleanField("Include lecturer summary", default=True)
     include_student_summary = BooleanField("Include my summary", default=True)
 
+
+def _ensure_prompt_progress(submission: StudentSubmission) -> None:
+    assignment = submission.assignment
+    prompts = list(assignment.prompts)
+    if not prompts:
+        return
+
+    messages = (
+        db.session.query(StudentSubmissionMessage)
+        .filter_by(submission_id=submission.id)
+        .order_by(StudentSubmissionMessage.created_at.asc(), StudentSubmissionMessage.id.asc())
+        .all()
+    )
+
+    if not messages:
+        next_prompt = prompts[0]
+    else:
+        last_message = messages[-1]
+        delivered_ids = [
+            (msg.get_context() or {}).get("prompt_id")
+            for msg in messages
+            if msg.role == "lecturer"
+        ]
+        delivered_count = len([pid for pid in delivered_ids if pid])
+        if last_message.role != "assistant":
+            return
+        if delivered_count >= len(prompts):
+            return
+        next_prompt = prompts[delivered_count]
+
+    content = next_prompt.prompt_text.strip()
+    prompt_message = StudentSubmissionMessage(
+        submission=submission,
+        role="lecturer",
+        content=content,
+    )
+    prompt_message.set_context(
+        prompt_id=next_prompt.id,
+        prompt_title=(next_prompt.title or "").strip() or None,
+        example_response=(next_prompt.example_response or "").strip() or None,
+    )
+    db.session.add(prompt_message)
+    db.session.commit()
 
 @bp.route("/")
 @login_required
@@ -208,6 +253,8 @@ def student():
             flash("Invalid submission.", "danger")
             return redirect(url_for("main.student", step=stage))
 
+        _ensure_prompt_progress(submission)
+
         include_lecturer_summary = bool(chat_form.include_lecturer_summary.data)
         include_student_summary = bool(chat_form.include_student_summary.data)
 
@@ -255,16 +302,38 @@ def student():
         return redirect(url_for("main.student", step=4))
 
     conversation_messages: list[StudentSubmissionMessage] = []
+    active_prompt_message: Optional[StudentSubmissionMessage] = None
+    prompt_progress = {"delivered": 0, "total": len(assignment_prompts)}
+
     if stage >= 4 and active_submission:
+        _ensure_prompt_progress(active_submission)
         conversation_messages = (
             db.session.query(StudentSubmissionMessage)
             .filter_by(submission_id=active_submission.id)
             .order_by(StudentSubmissionMessage.created_at.asc())
             .all()
         )
+        for message in conversation_messages:
+            if message.role == "lecturer":
+                prompt_progress["delivered"] += 1
+        if conversation_messages and conversation_messages[-1].role == "lecturer":
+            active_prompt_message = conversation_messages[-1]
+        prompt_progress["delivered"] = min(
+            prompt_progress["delivered"],
+            prompt_progress["total"],
+        )
+        prompt_progress["remaining"] = max(
+            prompt_progress["total"] - prompt_progress["delivered"],
+            0,
+        )
     elif stage >= 4 and not active_submission:
         session["student_stage"] = 3
         return redirect(url_for("main.student", step=3))
+    else:
+        prompt_progress["remaining"] = max(
+            prompt_progress["total"] - prompt_progress["delivered"],
+            0,
+        )
 
     return render_template(
         "student_dashboard.html",
@@ -279,6 +348,8 @@ def student():
         assignment_prompts=assignment_prompts,
         conversation_messages=conversation_messages,
         active_submission=active_submission,
+        active_prompt_message=active_prompt_message,
+        prompt_progress=prompt_progress,
         stage=stage,
         format_summary=_format_summary,
     )

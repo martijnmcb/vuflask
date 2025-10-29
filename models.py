@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from passlib.hash import pbkdf2_sha256
 from flask_login import UserMixin
@@ -6,11 +6,15 @@ from extensions import db
 import base64
 import json
 
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
 # Tabel associatie User <-> Role (many-to-many)
 user_roles = db.Table(
     "user_roles",
-    db.Column("user_id", db.Integer, db.ForeignKey("users.id")),
-    db.Column("role_id", db.Integer, db.ForeignKey("roles.id")),
+    db.Column("user_id", db.Integer, db.ForeignKey("users.id"), nullable=False),
+    db.Column("role_id", db.Integer, db.ForeignKey("roles.id"), nullable=False),
 )
 
 class User(UserMixin, db.Model):
@@ -23,7 +27,7 @@ class User(UserMixin, db.Model):
     username   = db.Column(db.String(120), unique=True, index=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     is_active  = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
 
     roles = db.relationship("Role", secondary=user_roles, back_populates="users")
     project_links = db.relationship(
@@ -97,7 +101,7 @@ class ConnectionSetting(db.Model):
     password = db.Column(db.String(255), nullable=False, default="")
     odbc_driver = db.Column(db.String(255), nullable=False, default="ODBC Driver 18 for SQL Server")
     trust_server_cert = db.Column(db.Boolean, default=True)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = db.Column(db.DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     def build_uri(self):
         trust = "yes" if self.trust_server_cert else "no"
@@ -119,7 +123,7 @@ class ConnectionProfile(db.Model):
     password = db.Column(db.String(255), nullable=False, default="")
     odbc_driver = db.Column(db.String(255), nullable=False, default="ODBC Driver 17 for SQL Server")
     trust_server_cert = db.Column(db.Boolean, default=True)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = db.Column(db.DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     def build_uri(self):
         trust = "yes" if self.trust_server_cert else "no"
@@ -137,7 +141,7 @@ class Assignment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
 
     documents = db.relationship(
         "AssignmentDocument",
@@ -174,11 +178,11 @@ class AssignmentDocument(db.Model):
     mimetype = db.Column(db.String(120), nullable=False, default="application/pdf")
     file_size = db.Column(db.Integer, nullable=False)
     content = db.Column(db.LargeBinary, nullable=False)
-    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    uploaded_at = db.Column(db.DateTime(timezone=True), default=utcnow)
     notes = db.Column(db.Text)
     summary = db.Column(db.Text)
     summary_model = db.Column(db.String(64))
-    summary_updated_at = db.Column(db.DateTime)
+    summary_updated_at = db.Column(db.DateTime(timezone=True))
 
     assignment = db.relationship("Assignment", back_populates="documents")
 
@@ -195,7 +199,7 @@ class AssignmentDocument(db.Model):
     def set_summary(self, text: str, model_name: Optional[str] = None):
         self.summary = text.strip() if text else None
         self.summary_model = model_name
-        self.summary_updated_at = datetime.utcnow()
+        self.summary_updated_at = utcnow()
 
 
 class AssignmentPrompt(db.Model):
@@ -207,8 +211,8 @@ class AssignmentPrompt(db.Model):
     prompt_text = db.Column(db.Text, nullable=False)
     example_response = db.Column(db.Text)
     display_order = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
+    updated_at = db.Column(db.DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     assignment = db.relationship("Assignment", back_populates="prompts")
 
@@ -223,10 +227,10 @@ class StudentSubmission(db.Model):
     mimetype = db.Column(db.String(120), nullable=False, default="application/pdf")
     file_size = db.Column(db.Integer, nullable=False)
     content = db.Column(db.LargeBinary, nullable=False)
-    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    uploaded_at = db.Column(db.DateTime(timezone=True), default=utcnow)
     summary = db.Column(db.Text)
     summary_model = db.Column(db.String(64))
-    summary_updated_at = db.Column(db.DateTime)
+    summary_updated_at = db.Column(db.DateTime(timezone=True))
 
     assignment = db.relationship("Assignment", back_populates="submissions")
     student = db.relationship("User", back_populates="submissions")
@@ -243,7 +247,7 @@ class StudentSubmission(db.Model):
     def set_summary(self, text: str, model_name: Optional[str] = None):
         self.summary = text.strip() if text else None
         self.summary_model = model_name
-        self.summary_updated_at = datetime.utcnow()
+        self.summary_updated_at = utcnow()
 
 
 class StudentSubmissionMessage(db.Model):
@@ -251,9 +255,9 @@ class StudentSubmissionMessage(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     submission_id = db.Column(db.Integer, db.ForeignKey("student_submissions.id"), nullable=False)
-    role = db.Column(db.String(20), nullable=False)  # 'student' or 'assistant'
+    role = db.Column(db.String(20), nullable=False)  # 'student', 'assistant', or 'lecturer'
     content = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
     model = db.Column(db.String(64))
     context = db.Column(db.Text)
 
