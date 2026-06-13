@@ -40,11 +40,6 @@ class User(UserMixin, db.Model):
         cascade="all, delete-orphan",
         back_populates="student",
     )
-    submissions = db.relationship(
-        "StudentSubmission",
-        cascade="all, delete-orphan",
-        back_populates="student",
-    )
 
     def set_password(self, raw):
         if raw is None:
@@ -154,11 +149,6 @@ class Assignment(db.Model):
         back_populates="assignment",
         cascade="all, delete-orphan",
         order_by="AssignmentPrompt.display_order",
-    )
-    submissions = db.relationship(
-        "StudentSubmission",
-        back_populates="assignment",
-        cascade="all, delete-orphan",
     )
     submissions = db.relationship(
         "StudentSubmission",

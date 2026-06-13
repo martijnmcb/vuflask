@@ -11,7 +11,7 @@
 - `instance/`: local-only artifacts (`app.db`); keep out of version control.
 
 ## Build, Test, and Development Commands
-- `python -m venv .venv && source .venv/bin/activate`: create/activate isolated environment.
+- `python -m venv venv && source venv/bin/activate`: create/activate isolated environment.
 - `pip install -r requirements.txt`: install dependencies.
 - `flask --app app:create_app run` or `python app.py`: start the dev server at http://localhost:5000.
 - `export FLASK_DEBUG=1`: enable debug reloader and tracebacks during dev.

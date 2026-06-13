@@ -16,7 +16,7 @@ DiaLoque is a teaching lab application for Vrije Universiteit Amsterdam that let
 - `services/export_pdf.py` – Generates downloadable PDFs combining summaries and chat transcripts.
 - `templates/`, `static/` – Jinja UI (AI-themed homepage, lecturer & student dashboards) and custom CSS.
 - `config.py` – dotenv-driven configuration (`SECRET_KEY`, DB URI, OpenAI key, etc.).
-- `tests/` – pytest smoke tests for routes using the application factory (`PYTHONPATH=. pytest`).
+- `tests/` – pytest coverage for the main route and workflow paths using the application factory (`pytest`).
 
 ## Technology Stack
 | Component | Version |
@@ -86,9 +86,8 @@ DiaLoque is a teaching lab application for Vrije Universiteit Amsterdam that let
 ## Testing
 ```bash
 source venv/bin/activate
-PYTHONPATH=. pytest -q
+pytest -q
 ```
-> `PYTHONPATH=.` is required because the project is not installed as a package.
 
 ## Recent Decisions (Changelog-lite)
 - **Homepage refresh** – Replaced SmartWheels theming with DiaLoque AI teaching hero/roadmap (`templates/main_home.html`, `static/style.css`).
@@ -97,4 +96,6 @@ PYTHONPATH=. pytest -q
 - **Lecturer workflow** – Manage four-per-assignment PDFs, OpenAI summaries, and lecturer prompts in the database (`blueprints/lecturer`, `models.Assignment*`, `models.AssignmentPrompt`, `services/openai_summarizer.py`).
 - **Student workflow** – Four-step `/student` wizard (select, upload, review, converse) with stored student summaries, lecturer preview, chat restart, and PDF export (`blueprints/main/routes.py`, `templates/student_dashboard.html`, `services/chat_llm.py`, `services/export_pdf.py`).
 - **Conversation memory** – Chat history stored in `StudentSubmissionMessage` with metadata for future analysis and prompt seeding.
+- **Timezone-aware timestamps** – ORM defaults and migrations now use timezone-aware datetimes throughout the core domain models.
+- **Test bootstrap cleanup** – `tests/conftest.py` now injects the project root so `pytest -q` works without manual `PYTHONPATH` setup.
 - **Contributor guide** – Authored `AGENTS.md` for repo structure, style, and security expectations.

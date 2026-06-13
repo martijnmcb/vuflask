@@ -1,10 +1,11 @@
 # Start DiaLoque
 
-This project can run with the built-in Flask dev server, plus production-grade WSGI servers for macOS/Linux (`gunicorn`) and Windows (`waitress`). The commands below assume you already created and activated a virtual environment (`python -m venv .venv`).
+This project can run with the built-in Flask dev server, plus production-grade WSGI servers for macOS/Linux (`gunicorn`) and Windows (`waitress`). The commands below assume you already created and activated the repository's existing virtual environment (`venv/`).
 
 ## 1. Install dependencies
 
 ```bash
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
@@ -77,6 +78,13 @@ Waitress uses a single process with multiple threads by default; tweak settings 
 ## 5. Verification
 
 Visit `http://localhost:8000/` (or your chosen port) to confirm the app starts. Use the `/init` route while in development to seed the default admin user and roles.
+
+For tests, use:
+
+```bash
+source venv/bin/activate
+pytest -q
+```
 
 ---
 

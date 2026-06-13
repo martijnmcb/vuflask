@@ -5,20 +5,19 @@
 - Lecturer console supports full assignment lifecycle (create/edit/delete), four PDF artefacts, OpenAI summaries, and configurable lecturer prompts.
 - Student dashboard delivers a four-step wizard: assignment selection, case-analysis upload + summary, review of lecturer/student summaries, and an LLM chat stage with restart + PDF export.
 - Database captures submissions, prompts, conversation logs, and summary metadata for future AI analysis.
+- Core timestamp fields have already been migrated to timezone-aware datetimes in both models and Alembic history.
 
 ## Open Challenges
 - Role seeds remain Dutch; align localisation strategy (including `/init` and UI copy).
-- Tests still require `PYTHONPATH=.`; consider adding `pytest.ini` or packaging the app for CI.
 - Accessibility audit (contrast, keyboard paths, screen readers) is pending for refreshed pages.
-- SQLAlchemy warns about `datetime.utcnow()`; migrate to timezone-aware timestamps when practical.
 - Chat defaults (include summaries, model choice) currently live in code; consider exposing admin controls.
 
 ## Next Steps
 1. Decide on localisation (role labels, messages) and propagate changes.
 2. Add CI-friendly test config to drop the `PYTHONPATH` requirement.
-3. Enhance chat experience (persist summary toggles, show active model, optional streaming responses).
-4. Capture updated screenshots/docs for lecturer/student workflows.
-5. Build richer conversational UX (e.g., rubric-based scoring, feedback export) leveraging `StudentSubmissionMessage` history.
+2. Enhance chat experience (persist summary toggles, show active model, optional streaming responses).
+3. Capture updated screenshots/docs for lecturer/student workflows.
+4. Build richer conversational UX (e.g., rubric-based scoring, feedback export) leveraging `StudentSubmissionMessage` history.
 
 ## Key Artifacts & Paths
 - Lecturer UI: `templates/lecturer_assignments.html`, `templates/lecturer_assignment_detail.html`
@@ -33,9 +32,8 @@
 - Local dev DB (ignored): `instance/app.db`
 
 ## Tests & Logs
-- `source venv/bin/activate && PYTHONPATH=. pytest -q`
-  - Latest run: `14 passed in 1.10s`
-- Without `PYTHONPATH`, tests still fail (`ModuleNotFoundError: app`).
+- `source venv/bin/activate && pytest -q`
+  - Latest run: `14 passed in 1.39s`
 - Chat/summarisation tests use monkeypatched OpenAI calls; real usage needs network + valid `OPENAI_API_KEY`.
 
 ## Schemas & Contracts
@@ -62,4 +60,5 @@
 - Student wizard relies on session state (`student_stage`, `active_assignment_id`). Flask-signed sessions suffice for dev; consider server-side storage in production.
 - Conversation history trims to last 12 messages before hitting the API to manage token cost.
 - PDF export sanitises characters unsupported by Helvetica; upgrade to a full Unicode font if future needs require broader character sets.
+- `User.submissions` and `Assignment.submissions` should each exist only once in the ORM model; keep an eye on accidental duplicate relationship declarations during future model edits.
 - Run migrations (`flask db upgrade`) after pulling new code; latest migration adds prompts/chat metadata.

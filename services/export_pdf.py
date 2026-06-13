@@ -21,12 +21,12 @@ class ConversationPDF:
         self._pdf.add_page()
         self._pdf.set_title(title)
         self._pdf.set_font("Helvetica", "B", 16)
-        self._pdf.cell(0, 10, _sanitize(title), ln=True)
+        self._pdf.cell(0, 10, _sanitize(title), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         self._pdf.ln(4)
 
     def add_heading(self, text: str) -> None:
         self._pdf.set_font("Helvetica", "B", 13)
-        self._pdf.cell(0, 9, _sanitize(text), ln=True)
+        self._pdf.cell(0, 9, _sanitize(text), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         self._pdf.ln(1)
 
     def add_paragraph(self, text: str) -> None:
@@ -59,7 +59,7 @@ class ConversationPDF:
             self._pdf.ln(2)
 
     def output(self) -> BytesIO:
-        raw = self._pdf.output(dest="S")
+        raw = self._pdf.output()
         if isinstance(raw, str):
             pdf_bytes = raw.encode("latin1")
         else:
